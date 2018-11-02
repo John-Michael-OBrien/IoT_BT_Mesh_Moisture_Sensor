@@ -42,6 +42,9 @@
 
 #include "retargetserial.h"
 
+#include "src/user_signals_bt.h"
+#include "src/pb_driver_bt.h"
+#include "src/led_driver.h"
 #include "src/meshconn.h"
 
 /***********************************************************************************************//**
@@ -110,6 +113,8 @@ int main()
   RETARGET_SerialInit();
   RETARGET_SerialCrLf(true);
 
+  printf("\n\n\n\n");
+
 
   gecko_stack_init(&config);
   gecko_bgapi_class_dfu_init();
@@ -127,6 +132,8 @@ int main()
   gecko_initCoexHAL();
 
   meshconn_init();
+  led_init();
+  pb_init();
 
   while (1) {
     struct gecko_cmd_packet *evt = gecko_wait_event();
