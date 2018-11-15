@@ -15,7 +15,7 @@
 #define CORE_EVT_BOOT (1<<4)
 #define CORE_EVT_RESET (1<<5)
 #define CORE_EVT_POST_BOOT (1<<6) /* Do not assume that this will always come before the provisioned event! */
-#define CORE_EVT_PROVISIONED (1<<7)
+#define CORE_EVT_NETWORK_READY (1<<7)
 
 
 #endif /* SRC_USER_SIGNALS_BT_H_ */

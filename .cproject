@@ -34,7 +34,7 @@
 							<targetPlatform binaryParser="org.eclipse.cdt.core.ELF;org.eclipse.cdt.core.GNU_ELF;com.silabs.ss.framework.debugger.core.BIN;com.silabs.ss.framework.debugger.core.HEX;com.silabs.ss.framework.debugger.core.S37;com.silabs.ss.framework.debugger.core.EBL;com.silabs.ss.framework.debugger.core.GBL" id="com.silabs.ide.si32.gcc.cdt.managedbuild.target.gnu.platform.base.322663530" isAbstract="false" name="Debug Platform" osList="win32,linux,macosx" superClass="com.silabs.ide.si32.gcc.cdt.managedbuild.target.gnu.platform.base"/>
 							<builder buildPath="${workspace_loc:/remote-moisture-sensor}/GNU ARM v7.2.1 - Default" id="com.silabs.ide.si32.gcc.cdt.managedbuild.target.gnu.builder.base.1992201196" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Si32 GNU ARM Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.silabs.ide.si32.gcc.cdt.managedbuild.target.gnu.builder.base"/>
 							<tool id="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.c.compiler.base.38337190" name="GNU ARM C Compiler" superClass="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.c.compiler.base">
-								<option id="gnu.c.compiler.option.optimization.level.1850219158" name="Optimization Level" superClass="gnu.c.compiler.option.optimization.level" value="gnu.c.optimization.level.none" valueType="enumerated"/>
+								<option id="gnu.c.compiler.option.optimization.level.1850219158" name="Optimization Level" superClass="gnu.c.compiler.option.optimization.level" value="gnu.c.optimization.level.size" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.optimization.flags.1027452765" name="Other optimization flags" superClass="gnu.c.compiler.option.optimization.flags" value="-fno-builtin -flto" valueType="string"/>
 								<option id="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.c.compiler.misc.dialect.875648271" name="C Language Dialect" superClass="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.c.compiler.misc.dialect" value="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.c.compiler.misc.dialect.c99" valueType="enumerated"/>
 								<option id="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.c.compiler.optimization.shortenums.1601460171" name="Short enums (-fshort-enums)" superClass="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.c.compiler.optimization.shortenums" value="false" valueType="boolean"/>
@@ -64,6 +64,12 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/platform/emdrv/gpiointerrupt/inc}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/platform/Device/SiliconLabs/EFR32BG13P/Source}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/platform/emdrv/uartdrv/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${StudioSdkPath}/platform/middleware/glib/glib&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${StudioSdkPath}/platform/middleware/glib/dmd&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${StudioSdkPath}/util/silicon_labs/silabs_core/graphics&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${StudioSdkPath}/hardware/kit/common/drivers&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${StudioSdkPath}/platform/middleware/glib&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/lcdGraphics}&quot;"/>
 								</option>
 								<option id="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.c.compiler.def.symbols.1251879583" name="Defined symbols (-D)" superClass="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.c.compiler.def.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="EFR32BG13P632F512GM48=1"/>
@@ -101,6 +107,10 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/platform/emdrv/gpiointerrupt/inc}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/platform/Device/SiliconLabs/EFR32BG13P/Source}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/platform/emdrv/uartdrv/inc}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${StudioSdkPath}/platform/middleware/glib/glib&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${StudioSdkPath}/platform/middleware/glib/dmd&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${StudioSdkPath}/util/silicon_labs/silabs_core/graphics&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${StudioSdkPath}/hardware/kit/common/drivers&quot;"/>
 								</option>
 								<option id="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.as.def.symbols.304287341" name="Defined symbols (-D)" superClass="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.as.def.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="EFR32BG13P632F512GM48=1"/>
@@ -144,12 +154,15 @@
 							<tool id="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.archiver.base.1879858338" name="GNU ARM Archiver" superClass="com.silabs.ide.si32.gcc.cdt.managedbuild.tool.gnu.archiver.base"/>
 						</toolChain>
 					</folderInfo>
+					<sourceEntries>
+						<entry excluding=".git/objects/info|.git/objects/pack|.git/refs/tags" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+					</sourceEntries>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
 	</storageModule>
-	<storageModule generalProj.esf.protocolIds="com.silabs.sdk.stack.btmesh:1.3.1._620725457.com.silabs.stack.ble:2.9.2.0_1706183479" generalProj.esf.protocolNames="btmesh" moduleId="com.silabs.ss.framework.ide.project.core.cpp" project.generation="16" projectCommon.boardIds="brd4104a:0.0.0.A00" projectCommon.partId="mcu.arm.efr32.bg13.efr32bg13p632f512gm48" projectCommon.sdkId="com.silabs.sdk.stack.btmesh:1.3.1._620725457"/>
+	<storageModule generalProj.esf.protocolIds="com.silabs.sdk.stack.btmesh:1.3.1._620725457.com.silabs.stack.ble:2.9.2.0_1706183479" generalProj.esf.protocolNames="btmesh" moduleId="com.silabs.ss.framework.ide.project.core.cpp" project.generation="9" projectCommon.boardIds="brd4104a:0.0.0.A00" projectCommon.partId="mcu.arm.efr32.bg13.efr32bg13p632f512gm48" projectCommon.sdkId="com.silabs.sdk.stack.btmesh:1.3.1._620725457"/>
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 		<project id="remote-moisture-sensor.com.silabs.ss.framework.ide.project.core.cdt.cdtMbsProjectType.1799859227" name="SLS CDT Project" projectType="com.silabs.ss.framework.ide.project.core.cdt.cdtMbsProjectType"/>
 	</storageModule>

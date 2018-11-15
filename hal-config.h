@@ -7,6 +7,7 @@
 
 #define HAL_VCOM_ENABLE                   (1)
 #define HAL_I2CSENSOR_ENABLE              (0)
-#define HAL_SPIDISPLAY_ENABLE             (0)
+#define HAL_SPIDISPLAY_ENABLE             (1)
+#define HAL_SPIDISPLAY_FREQUENCY (1000000)
 
 #endif

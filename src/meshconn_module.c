@@ -5,12 +5,10 @@
  *      Author: jtc-b
  */
 
+/* Standard Libraries */
 #include "stdio.h"
 #include "stdint.h"
 #include "stdbool.h"
-#include "led_driver.h"
-#include "pb_driver_bt.h"
-
 
 /* Bluetooth stack headers */
 #include "bg_types.h"
@@ -19,12 +17,17 @@
 #include <gecko_configuration.h>
 #include <mesh_sizes.h>
 
+#include "meshconn_module.h"
+
+#include "lcd_driver.h"
+#include "led_driver.h"
+#include "pb_driver_bt.h"
+
 #include "utils_bt.h"
 #include "mesh_utils.h"
 #include "debug.h"
 #include "user_signals_bt.h"
 
-#include "meshconn.h"
 
 const static uint8_t mesh_static_auth_data[] = MESH_STATIC_KEY;
 
@@ -40,12 +43,21 @@ static void _stop_blinking();
 static void _handle_blinking();
 
 
+static void _do_factory_reset() {
+	debug_log("*** DOING FACTORY RESET ***");
+	/* Wipe out the persistent storage (all keys, bindings, and app data. EVERYTHING!) */
+	gecko_cmd_flash_ps_erase_all();
+	LCD_write("Factory Reset", LCD_ROW_CONNECTION);
+}
+
 static void _reset_state() {
 	debug_log("_reset_state");
 	blink_count = 0;
 	blinks_remaining = 0;
 	blink_state = false;
 	blinking = false;
+	LCD_write("Mesh ADDR", LCD_ROW_BTADDR1);
+	LCD_write("", LCD_ROW_BTADDR2);
 }
 
 static void _start_provisioning_beacon() {
@@ -130,8 +142,7 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			if (pb_get_pb0()) {
 				debug_log("Button pressed. Factory Resetting...");
 
-				/* Wipe out the persistent storage (all keys, bindings, and app data. EVERYTHING!) */
-				gecko_cmd_flash_ps_erase_all();
+				_do_factory_reset();
 
 				/* Turn on the LED to indicate that we're reset */
 				led_on();
@@ -147,8 +158,9 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			DEBUG_ASSERT_BGAPI_SUCCESS(gecko_cmd_mesh_node_init_oob(
 					0,
 					MESH_PROV_AUTH_METHOD_STATIC_OOB | MESH_PROV_AUTH_METHOD_OUTPUT_OOB,
-					MESH_PROV_OOB_OUTPUT_ACTIONS_BLINK,
-					8,
+//					MESH_PROV_OOB_OUTPUT_ACTIONS_BLINK | MESH_PROV_OOB_DISPLY_NUMERIC,
+					MESH_PROV_OOB_DISPLY_NUMERIC,
+					6,
 					MESH_PROV_OOB_INPUT_ACTIONS_NONE,
 					0,
 					MESH_PROV_OOB_LOCATION_OTHER)
@@ -160,7 +172,7 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			if (evt->data.evt_mesh_node_initialized.provisioned) {
 				debug_log("Already provisioned.");
 				/* If we were already provisioned, tell that to our downstream components. */
-				gecko_external_signal(CORE_EVT_PROVISIONED);
+				gecko_external_signal(CORE_EVT_NETWORK_READY);
 
 			} else {
 				debug_log("We're unprovisioned. Beaconing...");
@@ -179,11 +191,6 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			break;
 		case gecko_evt_mesh_node_display_output_oob_id:
 			debug_log("evt_mesh_node_display_output_oob");
-			if (evt->data.evt_mesh_node_display_output_oob.output_action != MESH_PROV_OOB_DISPLY_BLINK) {
-				debug_log("Invalid provisioning mode requested.");
-				/* We can't do anything with that, so bail and let the user fail the provisioning. */
-				return;
-			}
 			printf("Data size: %u\n", (uint16_t) evt->data.evt_mesh_node_display_output_oob.data.len);
 			printf("Data: ");
 			for (uint8_t i=0;i<evt->data.evt_mesh_node_display_output_oob.data.len;i++) {
@@ -191,11 +198,23 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			}
 			printf("\n");
 
+			switch(evt->data.evt_mesh_node_display_output_oob.output_action) {
+				case MESH_PROV_OOB_DISPLY_BLINK:
+					/* Grab just the LSB of the data
+					 * Technically this is bad. The data is 128 bits wide. However, 10 blinks is unreasonable, so handling up to 255 is fine.
+					 */
+					_start_blinking(evt->data.evt_mesh_node_display_output_oob.data.data[evt->data.evt_mesh_node_display_output_oob.data.len-1]);
+					break;
+				case MESH_PROV_OOB_DISPLY_NUMERIC:
+					sprintf(prompt_buffer,"%06d",(uint16_t) evt->data.evt_mesh_node_display_output_oob.data.data[evt->data.evt_mesh_node_display_output_oob.data.len-2]);
+					LCD_write(prompt_buffer,LCD_ROW_PASSKEY);
+					break;
+				default:
+					debug_log("Invalid provisioning mode requested.");
+					return;
+			}
 
-			/* Grab just the LSB of the data
-			 * Technically this is bad. The data is 128 bits wide. However, 10 blinks is unreasonable, so handling up to 255 is fine.
-			 */
-			_start_blinking(evt->data.evt_mesh_node_display_output_oob.data.data[evt->data.evt_mesh_node_display_output_oob.data.len-1]);
+
 			break;
 
 		case gecko_evt_mesh_node_provisioning_failed_id:
@@ -210,9 +229,13 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 		case gecko_evt_mesh_node_provisioned_id:
 			debug_log("evt_mesh_node_provisioned");
 			/* If we've successfully been provisioned, tell that to our downstream components. */
-			gecko_external_signal(CORE_EVT_PROVISIONED);
+			gecko_external_signal(CORE_EVT_NETWORK_READY);
 
 			_stop_blinking();
+			break;
+
+		case gecko_evt_mesh_node_reset_id:
+			_do_factory_reset();
 			break;
 
 		case gecko_evt_hardware_soft_timer_id:
@@ -227,9 +250,15 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 
 		case gecko_evt_system_external_signal_id:
 			debug_log("evt_system_external_signal");
-			if(evt->data.evt_system_external_signal.extsignals & CORE_EVT_BOOT ) {
+			if(evt->data.evt_system_external_signal.extsignals & CORE_EVT_BOOT) {
 				/* Kick off the second stage boot */
 				gecko_external_signal(CORE_EVT_POST_BOOT);
+			}
+			if(evt->data.evt_system_external_signal.extsignals & CORE_EVT_NETWORK_READY) {
+				struct gecko_msg_mesh_node_get_element_address_rsp_t *addr = gecko_cmd_mesh_node_get_element_address(0);
+				DEBUG_ASSERT_BGAPI_SUCCESS(addr->result,"Failed to get element address.");
+				sprintf(prompt_buffer, "0x%04X", addr->address);
+				LCD_write(prompt_buffer, LCD_ROW_BTADDR2);
 			}
 			break;
 		default:

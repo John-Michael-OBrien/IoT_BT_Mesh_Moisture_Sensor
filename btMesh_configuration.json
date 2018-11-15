@@ -3,7 +3,7 @@
   "Composition Data": {
     "CID": "0x02ff",
     "PID": "0xf0b0",
-    "VID": "0x1234",
+    "VID": "0x0001",
     "CRPL": "0x0020",
     "Features": "0x0003",
     "Elements": [
@@ -15,12 +15,12 @@
         "SIG Models": [
           "0",
           "Configuration Server",
-          "3",
-          "Health Client",
           "2",
           "Health Server",
-          "1000",
-          "Generic OnOff Server"]
+          "3",
+          "Health Client",
+          "1013",
+          "Generic User Property Server"]
         ,
         "Vendor Models": [
           ]

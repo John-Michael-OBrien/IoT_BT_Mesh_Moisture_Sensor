@@ -12,6 +12,9 @@
  * any purpose, you must agree to the terms of that agreement.
  **************************************************************************************************/
 
+/* Standard Libraries */
+#include <stdio.h>
+
 /* Board headers */
 #include "init_mcu.h"
 #include "init_board.h"
@@ -41,11 +44,15 @@
 #endif
 
 #include "retargetserial.h"
+#include "lcd_driver.h"
 
+#include "src/debug.h"
 #include "src/user_signals_bt.h"
 #include "src/pb_driver_bt.h"
 #include "src/led_driver.h"
-#include "src/meshconn.h"
+#include <src/meshconn_module.h>
+#include <src/moistsrv_module.h>
+
 
 /***********************************************************************************************//**
  * @addtogroup Application
@@ -131,16 +138,24 @@ int main()
   mesh_native_bgapi_init();
   gecko_initCoexHAL();
 
-  meshconn_init();
+  LCD_init("Mesh Sensor");
   led_init();
   pb_init();
 
+  meshconn_init();
+  moistsrv_init();
+
   while (1) {
     struct gecko_cmd_packet *evt = gecko_wait_event();
+    if ((evt->header & 0xFFFF0000) == 0x001F0000) {
+    	debug_log("Found evt_mesh_generic_server_client_request");
+    }
     bool pass = mesh_bgapi_listener(evt);
     if (pass) {
+      printf("EVENT: %08lX\n", evt->header);
       handle_gecko_event(BGLIB_MSG_ID(evt->header), evt);
 	  meshconn_handle_events(BGLIB_MSG_ID(evt->header), evt);
+	  moistsrv_handle_events(BGLIB_MSG_ID(evt->header), evt);
     }
   }
 }

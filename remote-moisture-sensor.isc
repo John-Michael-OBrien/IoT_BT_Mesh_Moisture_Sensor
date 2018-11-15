@@ -36,12 +36,12 @@ appPlugin: slot-manager=false
     <informativeText>Abstract:  The generic_access service contains generic information about the device. All available Characteristics are readonly.  </informativeText>
     <characteristic id="device_name" name="Device Name" sourceId="org.bluetooth.characteristic.gap.device_name" uuid="2A00">
       <informativeText/>
-      <value length="20" type="utf-8" variable_length="true">BlueGecko Mesh Demo </value>
+      <value length="21" type="utf-8" variable_length="true">Moisture Alarm Sensor</value>
       <properties const="false" const_requirement="optional" read="true" read_requirement="mandatory"/>
     </characteristic>
     <characteristic name="Appearance" sourceId="org.bluetooth.characteristic.gap.appearance" uuid="2A01">
       <informativeText>Abstract:  The external appearance of this device. The values are composed of a category (10-bits) and sub-categories (6-bits).  </informativeText>
-      <value length="2" type="hex" variable_length="false">4003</value>
+      <value length="2" type="hex" variable_length="false">0003</value>
       <properties const="true" const_requirement="optional" read="true" read_requirement="mandatory"/>
     </characteristic>
   </service>
@@ -101,7 +101,7 @@ appPlugin: slot-manager=false
   "Composition Data": \{
     "CID": "0x02ff",
     "PID": "0xf0b0",
-    "VID": "0x1234",
+    "VID": "0x0001",
     "CRPL": "0x0020",
     "Features": "0x0003",
     "Elements": [
@@ -113,12 +113,12 @@ appPlugin: slot-manager=false
         "SIG Models": [
           "0",
           "Configuration Server",
-          "3",
-          "Health Client",
           "2",
           "Health Server",
-          "1000",
-          "Generic OnOff Server"]
+          "3",
+          "Health Client",
+          "1013",
+          "Generic User Property Server"]
         ,
         "Vendor Models": [
           ]

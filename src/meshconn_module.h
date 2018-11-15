@@ -5,11 +5,13 @@
  *      Author: jtc-b
  */
 
-#ifndef SRC_MESHCONN_H_
-#define SRC_MESHCONN_H_
+#ifndef SRC_MESHCONN_MODULE_H_
+#define SRC_MESHCONN_MODULE_H_
+
+#include "stdint.h"
+#include "native_gecko.h"
 
 #define MESH_STATIC_KEY {0x12,0x34}
-
 
 #define BLINK_TIMER_HANDLE (0x00)
 #define BLINK_ON_TIME (.3) /* Dit */
@@ -23,4 +25,4 @@
 void meshconn_init();
 void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt);
 
-#endif /* SRC_MESHCONN_H_ */
+#endif /* SRC_MESHCONN_MODULE_H_ */
