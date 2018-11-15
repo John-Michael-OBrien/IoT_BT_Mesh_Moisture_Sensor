@@ -134,6 +134,9 @@ void meshconn_init() {
 }
 
 void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
+	uint8_t *oob_data;
+	uint8_t oob_offset;
+	uint16_t oob_value;
 	switch(evt_id) {
 		case gecko_evt_system_boot_id:
 			debug_log("evt_system_boot");
@@ -158,9 +161,9 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			DEBUG_ASSERT_BGAPI_SUCCESS(gecko_cmd_mesh_node_init_oob(
 					0,
 					MESH_PROV_AUTH_METHOD_STATIC_OOB | MESH_PROV_AUTH_METHOD_OUTPUT_OOB,
-//					MESH_PROV_OOB_OUTPUT_ACTIONS_BLINK | MESH_PROV_OOB_DISPLY_NUMERIC,
-					MESH_PROV_OOB_DISPLY_NUMERIC,
-					6,
+//					MESH_PROV_OOB_OUTPUT_ACTIONS_BLINK | MESH_PROV_OOB_OUTPUT_ACTIONS_NUMERIC,
+					MESH_PROV_OOB_OUTPUT_ACTIONS_NUMERIC,
+					4,
 					MESH_PROV_OOB_INPUT_ACTIONS_NONE,
 					0,
 					MESH_PROV_OOB_LOCATION_OTHER)
@@ -206,11 +209,15 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 					_start_blinking(evt->data.evt_mesh_node_display_output_oob.data.data[evt->data.evt_mesh_node_display_output_oob.data.len-1]);
 					break;
 				case MESH_PROV_OOB_DISPLY_NUMERIC:
-					sprintf(prompt_buffer,"%06d",(uint16_t) evt->data.evt_mesh_node_display_output_oob.data.data[evt->data.evt_mesh_node_display_output_oob.data.len-2]);
+					oob_data = evt->data.evt_mesh_node_display_output_oob.data.data;
+					oob_offset = evt->data.evt_mesh_node_display_output_oob.data.len - 2;
+					oob_value = (((uint16_t) oob_data[oob_offset]) << 8) | ((uint16_t) oob_data[oob_offset+1]);
+					sprintf(prompt_buffer,"%06d",oob_value);
 					LCD_write(prompt_buffer,LCD_ROW_PASSKEY);
 					break;
 				default:
-					debug_log("Invalid provisioning mode requested.");
+					sprintf(prompt_buffer, "Invalid mode: %d", (uint16_t) evt->data.evt_mesh_node_display_output_oob.output_action);
+					debug_log(prompt_buffer);
 					return;
 			}
 
