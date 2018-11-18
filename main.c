@@ -46,10 +46,11 @@
 #include "retargetserial.h"
 #include "lcd_driver.h"
 
+
 #include "src/debug.h"
 #include "src/user_signals_bt.h"
-#include "src/pb_driver_bt.h"
 #include "src/led_driver.h"
+#include "src/pb_driver_bt.h"
 #include <src/meshconn_module.h>
 #include <src/moistsrv_module.h>
 
@@ -123,6 +124,7 @@ int main()
   printf("\n\n\n\n");
 
 
+
   gecko_stack_init(&config);
   gecko_bgapi_class_dfu_init();
   gecko_bgapi_class_system_init();
@@ -135,21 +137,25 @@ int main()
   gecko_bgapi_class_flash_init();
   gecko_bgapi_class_test_init();
   gecko_bgapi_class_sm_init();
-  mesh_native_bgapi_init();
+  gecko_bgapi_class_mesh_node_init();
+  gecko_bgapi_class_mesh_generic_server_init();
+  gecko_bgapi_class_mesh_proxy_server_init();
+  gecko_bgapi_class_mesh_proxy_init();
+
   gecko_initCoexHAL();
+
+  //gecko_init(&config);
+  mesh_native_bgapi_init();
 
   LCD_init("Mesh Sensor");
   led_init();
-  pb_init();
+  pb_init(PB_EVT_0,PB_EVT_1);
 
   meshconn_init();
   moistsrv_init();
 
   while (1) {
     struct gecko_cmd_packet *evt = gecko_wait_event();
-    if ((evt->header & 0xFFFF0000) == 0x001F0000) {
-    	debug_log("Found evt_mesh_generic_server_client_request");
-    }
     bool pass = mesh_bgapi_listener(evt);
     if (pass) {
       printf("EVENT: %08lX\n", evt->header);

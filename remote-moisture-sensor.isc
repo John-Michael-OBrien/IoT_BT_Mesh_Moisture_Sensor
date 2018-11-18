@@ -101,24 +101,20 @@ appPlugin: slot-manager=false
   "Composition Data": \{
     "CID": "0x02ff",
     "PID": "0xf0b0",
-    "VID": "0x0001",
+    "VID": "0x1234",
     "CRPL": "0x0020",
-    "Features": "0x0003",
+    "Features": "0x000B",
     "Elements": [
       \{
         "Name": "Primary Element",
         "Loc": "0x0000",
-        "NumS": "4",
+        "NumS": "2",
         "NumV": "0",
         "SIG Models": [
           "0",
           "Configuration Server",
-          "2",
-          "Health Server",
-          "3",
-          "Health Client",
-          "1013",
-          "Generic User Property Server"]
+          "1002",
+          "Generic Level Server"]
         ,
         "Vendor Models": [
           ]
@@ -126,7 +122,7 @@ appPlugin: slot-manager=false
   \},
   "Memory configuration": \{
     "MAX_ELEMENTS": "1",
-    "MAX_MODELS": "4",
+    "MAX_MODELS": "2",
     "MAX_APP_BINDS": "4",
     "MAX_SUBSCRIPTIONS": "4",
     "MAX_NETKEYS": "4",

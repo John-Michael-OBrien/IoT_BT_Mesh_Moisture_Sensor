@@ -14,18 +14,16 @@
 const uint8_t __mesh_dcd[] = {
     0xff, 0x02, /* Company ID = 0x02ff */
     0xb0, 0xf0, /* Product ID = 0xf0b0 */
-    0x01, 0x00, /* Version Number = 0x0001 */
+    0x34, 0x12, /* Version Number = 0x1234 */
     0x20, 0x00, /* Capacity of Replay Protection List = 0x0020 */
-    0x03, 0x00, /* Features Bitmask = 0x0003 */
+    0x0b, 0x00, /* Features Bitmask = 0x000b */
     /* Begin Primary Element */
         0x00, 0x00, /* Location = 0x0000 */
-        0x04, /* Number of SIG Models = 0x04 */
+        0x02, /* Number of SIG Models = 0x02 */
         0x00, /* Number of Vendor Models = 0x00 */
         /* Begin SIG Models */
         0x00, 0x00, /* Configuration Server */
-        0x02, 0x00, /* Health Server */
-        0x03, 0x00, /* Health Client */
-        0x13, 0x10, /* Generic User Property Server */
+        0x02, 0x10, /* Generic Level Server */
         /* End SIG Models */
         /* Begin Vendor Models */
         /* End Vendor Models */

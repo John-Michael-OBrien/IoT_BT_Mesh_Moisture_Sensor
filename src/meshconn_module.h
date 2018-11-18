@@ -22,6 +22,9 @@
 #define BLINK_OFF_COUNTS (GET_SOFT_TIMER_COUNTS(BLINK_OFF_TIME))
 #define BLINK_GAP_COUNTS (GET_SOFT_TIMER_COUNTS(BLINK_GAP_TIME))
 
+typedef enum { init, booted, unprovisioned, provisioning, network_ready, error } meshconn_states;
+
+meshconn_states meshconn_get_state();
 void meshconn_init();
 void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt);
 

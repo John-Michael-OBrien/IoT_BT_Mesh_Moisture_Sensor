@@ -35,37 +35,47 @@ static uint8_t blink_count;
 static uint8_t blinks_remaining;
 static bool blink_state;
 static bool blinking;
+static meshconn_states state = init;
 
 static void _reset_state();
 static void _start_provisioning_beacon();
 static void _start_blinking(uint8_t count);
 static void _stop_blinking();
 static void _handle_blinking();
+static void _activate_network();
 
-
+// TODO: Documentation
 static void _do_factory_reset() {
 	debug_log("*** DOING FACTORY RESET ***");
 	/* Wipe out the persistent storage (all keys, bindings, and app data. EVERYTHING!) */
 	gecko_cmd_flash_ps_erase_all();
 	LCD_write("Factory Reset", LCD_ROW_CONNECTION);
+	state = unprovisioned;
 }
 
+// TODO: Documentation
 static void _reset_state() {
 	debug_log("_reset_state");
 	blink_count = 0;
 	blinks_remaining = 0;
 	blink_state = false;
 	blinking = false;
+	state = booted;
 	LCD_write("Mesh ADDR", LCD_ROW_BTADDR1);
 	LCD_write("", LCD_ROW_BTADDR2);
+	LCD_write("Booting...", LCD_ROW_CONNECTION);
 }
 
+// TODO: Documentation
 static void _start_provisioning_beacon() {
 	debug_log("_start_provisioning_beacon");
 	/* Using GATT because I'm provisioning from a non-mesh phone. */
 	gecko_cmd_mesh_node_start_unprov_beaconing(MESH_PROV_BEACON_USE_GATT);
+	state = unprovisioned;
+	LCD_write("Beaconing...", LCD_ROW_CONNECTION);
 }
 
+// TODO: Documentation
 static void _start_blinking(uint8_t count) {
 	/* Set our count */
 	blink_count = count;
@@ -88,6 +98,7 @@ static void _start_blinking(uint8_t count) {
 	_handle_blinking();
 }
 
+// TODO: Documentation
 static void _stop_blinking() {
 	/* Mark that we're not supposed to be blinking */
 	blinking = false;
@@ -99,6 +110,7 @@ static void _stop_blinking() {
 			"Failed to stop blink timer.");
 }
 
+// TODO: Documentation
 static void _handle_blinking() {
 	/* Just in case of a race in the event queue, if we're not supposed to be blinking, do nothing. */
 	if (!blinking) {
@@ -128,11 +140,24 @@ static void _handle_blinking() {
 	}
 }
 
+static void _activate_network() {
+	/* If we were already provisioned, tell that to our downstream components. */
+	state = network_ready;
+	gecko_external_signal(CORE_EVT_NETWORK_READY);
+	LCD_write("Ready", LCD_ROW_CONNECTION);
+}
+
+// TODO: Documentation
+meshconn_states meshconn_get_state() {
+	return state;
+}
+
+// TODO: Documentation
 void meshconn_init() {
-	_reset_state();
 	debug_log("Initialized.");
 }
 
+// TODO: Documentation
 void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	uint8_t *oob_data;
 	uint8_t oob_offset;
@@ -140,6 +165,9 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	switch(evt_id) {
 		case gecko_evt_system_boot_id:
 			debug_log("evt_system_boot");
+			_reset_state();
+			pb_start();
+
 
 			/* If we're booting with the button held down... */
 			if (pb_get_pb0()) {
@@ -169,14 +197,14 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 					MESH_PROV_OOB_LOCATION_OTHER)
 				->result, "Failed to initialize the mesh node feature");
 			break;
+
 		case gecko_evt_mesh_node_initialized_id:
 			debug_log("evt_mesh_node_initialized");
 
 			if (evt->data.evt_mesh_node_initialized.provisioned) {
 				debug_log("Already provisioned.");
-				/* If we were already provisioned, tell that to our downstream components. */
-				gecko_external_signal(CORE_EVT_NETWORK_READY);
 
+				_activate_network();
 			} else {
 				debug_log("We're unprovisioned. Beaconing...");
 				/* The Node is now initialized, start unprovisioned Beaconing using PB-GATT Bearer. */
@@ -185,13 +213,18 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 
 			gecko_external_signal(CORE_EVT_BOOT);
 			break;
+
 		case gecko_evt_mesh_node_provisioning_started_id:
 			debug_log("evt_mesh_node_provisioning_started");
+			state = provisioning;
+			LCD_write("Provisioning...", LCD_ROW_CONNECTION);
 			break;
+
 		case gecko_evt_mesh_node_static_oob_request_id:
 			debug_log("evt_mesh_node_static_oob_request");
 			gecko_cmd_mesh_node_static_oob_request_rsp(sizeof(mesh_static_auth_data), mesh_static_auth_data);
 			break;
+
 		case gecko_evt_mesh_node_display_output_oob_id:
 			debug_log("evt_mesh_node_display_output_oob");
 			printf("Data size: %u\n", (uint16_t) evt->data.evt_mesh_node_display_output_oob.data.len);
@@ -221,7 +254,6 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 					return;
 			}
 
-
 			break;
 
 		case gecko_evt_mesh_node_provisioning_failed_id:
@@ -235,14 +267,16 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 
 		case gecko_evt_mesh_node_provisioned_id:
 			debug_log("evt_mesh_node_provisioned");
-			/* If we've successfully been provisioned, tell that to our downstream components. */
-			gecko_external_signal(CORE_EVT_NETWORK_READY);
 
+			_activate_network();
 			_stop_blinking();
 			break;
 
 		case gecko_evt_mesh_node_reset_id:
+			/* Clear our settings */
 			_do_factory_reset();
+			/* And reboot the software */
+			gecko_cmd_system_reset(0);
 			break;
 
 		case gecko_evt_hardware_soft_timer_id:
