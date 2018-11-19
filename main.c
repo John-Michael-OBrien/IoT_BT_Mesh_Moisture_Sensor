@@ -105,7 +105,7 @@ const gecko_configuration_t config =
 };
 
 static void handle_gecko_event(uint32_t evt_id, struct gecko_cmd_packet *evt);
-void mesh_native_bgapi_init(void);
+// void mesh_native_bgapi_init(void);
 bool mesh_bgapi_listener(struct gecko_cmd_packet *evt);
 
 int main()
@@ -145,7 +145,7 @@ int main()
   gecko_initCoexHAL();
 
   //gecko_init(&config);
-  mesh_native_bgapi_init();
+  //mesh_native_bgapi_init();
 
   LCD_init("Mesh Sensor");
   led_init();

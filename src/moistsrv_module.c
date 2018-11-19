@@ -145,27 +145,18 @@ static void _update_level(uint16_t level) {
 	struct mesh_generic_state outbound_state;
 	struct mesh_generic_state next_state;
 	errorcode_t result;
+
 	outbound_state.kind = mesh_generic_state_level;
 	outbound_state.level.level = 5; //level;
 	next_state.kind = mesh_generic_state_level;
 	next_state.level.level = 5; //level;
-	uint8_t thing[] = {0,5};
-/*
+
 	result = mesh_lib_generic_server_update(
 			MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
 			MOISTURE_ELEMENT_INDEX,
 			&outbound_state,
 			&next_state,
 			0);
-*/
-	result = gecko_cmd_mesh_generic_server_update(
-			0x1002,
-			0,
-			0,
-			2,
-			2,
-			thing
-			)->result;
 	printf("Updated. Result: 0x%04X\n", result);
 }
 
@@ -249,17 +240,19 @@ void moistsrv_init() {
 void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	switch(evt_id) {
 		case gecko_evt_system_external_signal_id:
-			if(evt->data.evt_system_external_signal.extsignals & CORE_EVT_NETWORK_READY) {
-				_init_and_register_models();
-			}
 			if (evt->data.evt_system_external_signal.extsignals & CORE_EVT_BOOT) {
 	    		_load_settings();
+	    		DEBUG_ASSERT_BGAPI_SUCCESS(gecko_cmd_mesh_generic_server_init()
+	    				->result,"Failed to init Generic Mesh Server");
 			}
 			if (evt->data.evt_system_external_signal.extsignals & CORE_EVT_POST_BOOT) {
 				if (pb_get_pb1()) {
 					disable_deep_sleep = true;
 					_toast("Forced Awake");
 				}
+			}
+			if(evt->data.evt_system_external_signal.extsignals & CORE_EVT_NETWORK_READY) {
+				_init_and_register_models();
 			}
 			if(evt->data.evt_system_external_signal.extsignals & PB_EVT_0) {
 				printf("PB0\n");
