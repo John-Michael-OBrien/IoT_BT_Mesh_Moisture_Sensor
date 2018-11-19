@@ -11,11 +11,15 @@
 #include "stdint.h"
 #include "native_gecko.h"
 
-#define MOISTURE_ELEMENT_INDEX (0) /* Why 0? Because their system doesn't currently make an element array constant. >.< */
-#define SAVE_DELAY (5.000) /* s */
-#define SAVE_TIMER_HANDLE (1)
+#define MOISTSRV_TIMER_HANDLE_BASE (10)
 
-#define TOAST_TIMER_HANDLE (2)
+
+#define MOISTURE_ELEMENT_INDEX (0) /* Why 0? Because their system doesn't currently make an element array constant. >.< */
+
+#define SAVE_TIMER_HANDLE (MOISTSRV_TIMER_HANDLE_BASE + 1)
+#define SAVE_DELAY (5.000) /* s */
+
+#define TOAST_TIMER_HANDLE (MOISTSRV_TIMER_HANDLE_BASE + 2)
 #define TOAST_DURATION (3.000) /* s */
 
 

@@ -147,9 +147,9 @@ static void _update_level(uint16_t level) {
 	errorcode_t result;
 
 	outbound_state.kind = mesh_generic_state_level;
-	outbound_state.level.level = 5; //level;
+	outbound_state.level.level = level; //level;
 	next_state.kind = mesh_generic_state_level;
-	next_state.level.level = 5; //level;
+	next_state.level.level = level; //level;
 
 	result = mesh_lib_generic_server_update(
 			MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
@@ -187,13 +187,7 @@ void _handle_client_request(uint16_t model_id,
 				0);
 	} else {
 		_set_alarm_level(request->level);
-		DEBUG_ASSERT_BGAPI_SUCCESS(
-				mesh_lib_generic_server_update(MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
-					MOISTURE_ELEMENT_INDEX,
-					&old_state,
-					&current_state,
-					0)
-				, "Failed to update state");
+		_update_level(request->level);
 	}
 }
 

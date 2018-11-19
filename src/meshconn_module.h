@@ -13,14 +13,20 @@
 
 #define MESH_STATIC_KEY {0x12,0x34}
 
-#define BLINK_TIMER_HANDLE (0x00)
-#define BLINK_ON_TIME (.3) /* Dit */
+#define MESHCONN_TIMER_HANDLE_BASE (0)
+#define BLINK_TIMER_HANDLE (MESHCONN_TIMER_HANDLE_BASE + 0)
+
+#define BLINK_ON_TIME (0.3) /* Dit */
 #define BLINK_OFF_TIME (1.0 * BLINK_ON_TIME) /* Inter character */
 #define BLINK_GAP_TIME (7.0 * BLINK_ON_TIME) /* Inter word */
 
 #define BLINK_ON_COUNTS (GET_SOFT_TIMER_COUNTS(BLINK_ON_TIME))
 #define BLINK_OFF_COUNTS (GET_SOFT_TIMER_COUNTS(BLINK_OFF_TIME))
 #define BLINK_GAP_COUNTS (GET_SOFT_TIMER_COUNTS(BLINK_GAP_TIME))
+
+#define REBOOT_TIMER_HANDLE (MESHCONN_TIMER_HANDLE_BASE + 1)
+#define REBOOT_TIME (2.0) /* s */
+#define REBOOT_TIME_COUNTS (GET_SOFT_TIMER_COUNTS(REBOOT_TIME))
 
 typedef enum { init, booted, unprovisioned, provisioning, network_ready, error } meshconn_states;
 

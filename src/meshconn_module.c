@@ -36,6 +36,7 @@ static uint8_t blinks_remaining;
 static bool blink_state;
 static bool blinking;
 static meshconn_states state = init;
+static uint8_t conn_handle;
 
 static void _reset_state();
 static void _start_provisioning_beacon();
@@ -275,14 +276,26 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 		case gecko_evt_mesh_node_reset_id:
 			/* Clear our settings */
 			_do_factory_reset();
-			/* And reboot the software */
-			gecko_cmd_system_reset(0);
+			LCD_write("Rebooting...",LCD_ROW_CONNECTION);
+
+			/* Close any open connections */
+			if (conn_handle != 0xFF) {
+				gecko_cmd_le_connection_close(conn_handle);
+			}
+
+			DEBUG_ASSERT_BGAPI_SUCCESS(
+					gecko_cmd_hardware_set_soft_timer(REBOOT_TIME_COUNTS, REBOOT_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)->result,
+					"Failed to start reboot timer.");
 			break;
 
 		case gecko_evt_hardware_soft_timer_id:
 			switch(evt->data.evt_hardware_soft_timer.handle) {
 				case BLINK_TIMER_HANDLE:
 					_handle_blinking();
+					break;
+				case REBOOT_TIMER_HANDLE:
+					/* And reboot the software */
+					gecko_cmd_system_reset(0);
 					break;
 				default:
 					break;
@@ -302,7 +315,18 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 				LCD_write(prompt_buffer, LCD_ROW_BTADDR2);
 			}
 			break;
-		default:
+
+		case gecko_evt_le_connection_opened_id:
+			printf("gecko_evt_le_connection_opened_id\n");
+			conn_handle = evt->data.evt_le_connection_opened.connection;
+			break;
+
+	    case gecko_evt_le_connection_closed_id:
+			printf("gecko_evt_le_connection_closed_id\n");
+			conn_handle = 0xFF;
+			break;
+
+	    default:
 			break;
 	}
 }
