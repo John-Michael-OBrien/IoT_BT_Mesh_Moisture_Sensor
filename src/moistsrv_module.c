@@ -1,8 +1,10 @@
 /*
- * moisture_server_module.c
+ * @file moistsrv_module.c
+ * @brief Moisture Server Module. Takes measurements of the moisture sensor
+ *     and transmits them to the mesh network.
  *
- *  Created on: Nov 14, 2018
- *      Author: jtc-b
+ * @author John-Michael O'Brien
+ * @date Nov 14, 2018
  */
 
 /* Standard Libraries */
@@ -41,11 +43,10 @@ typedef PACKSTRUCT(struct {
 	uint16_t alarm_level;
 }) persistent_data;
 
-persistent_data settings;
-struct mesh_generic_state current_state;
-bool disable_deep_sleep = false;
-bool ready = false;
-bool ready_to = false;
+static persistent_data settings;
+static struct mesh_generic_state current_state;
+static bool disable_deep_sleep = false;
+static bool ready = false;
 
 #define ALARM_FLASH_KEY (0x4001)
 #define DEFAULT_ALARM_LEVEL (0x7FFF)
@@ -219,7 +220,7 @@ void _init_and_register_models() {
 		_handle_client_request,
 		_handle_server_change),"Error registering generic level model.");
 
-	_update_level(0);
+	_update_level(settings.alarm_level);
 
 	ready = true;
 	debug_log("Registered.");
@@ -252,7 +253,8 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 				printf("PB0\n");
 				if (meshconn_get_state() == network_ready && ready) {
 					_toast("Forced TX");
-					_update_level(++current_state.level.level);
+					//_update_level(++current_state.level.level);
+					_update_level(MOIST_ALARM_FLAG);
 					_publish_level();
 				}
 			}

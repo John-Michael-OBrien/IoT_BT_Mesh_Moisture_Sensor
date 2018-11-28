@@ -1,8 +1,9 @@
 /*
- * mesh_utils.h
+ * @file meshutils.h
+ * @brief Assorted constants and utilities for working with Bluetooth Mesh
  *
- *  Created on: Nov 1, 2018
- *      Author: jtc-b
+ * @author John-Michael O'Brien
+ * @date Nov 1, 2018
  */
 
 #ifndef SRC_MESH_UTILS_H_

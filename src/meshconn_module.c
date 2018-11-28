@@ -1,8 +1,9 @@
 /*
- * meshconn.c
+ * @file meshconn_module.c
+ * @brief Module that provides basic connection and provisioning services
  *
- *  Created on: Nov 1, 2018
- *      Author: jtc-b
+ * @author John-Michael O'Brien
+ * @date Nov 1, 2018
  */
 
 /* Standard Libraries */

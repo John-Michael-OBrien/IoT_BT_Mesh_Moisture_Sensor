@@ -1,10 +1,11 @@
-/***********************************************************************************************//**
- * \file   main.c
- * \brief  Silicon Labs BT Mesh Empty Example Project
+/*
+ * @file main.c
+ * @brief Primary operations and dispatcher for the Bluetooth Mesh Moisture Sensor
  *
- * This example demonstrates the bare minimum needed for a Blue Gecko BT Mesh C application.
- * The application starts unprovisioned Beaconing after boot
- ***************************************************************************************************
+ * @author John-Michael O'Brien
+ * @date Nov 1, 2018
+ */
+/***************************************************************************************************
  * <b> (C) Copyright 2017 Silicon Labs, http://www.silabs.com</b>
  ***************************************************************************************************
  * This file is licensed under the Silabs License Agreement. See the file
@@ -14,6 +15,8 @@
 
 /* Standard Libraries */
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 /* Board headers */
 #include "init_mcu.h"
@@ -53,6 +56,7 @@
 #include "src/pb_driver_bt.h"
 #include <src/meshconn_module.h>
 #include <src/moistsrv_module.h>
+#include <src/adc_driver.h>
 
 
 /***********************************************************************************************//**
@@ -144,15 +148,15 @@ int main()
 
   gecko_initCoexHAL();
 
-  //gecko_init(&config);
-  //mesh_native_bgapi_init();
-
   LCD_init("Mesh Sensor");
   led_init();
   pb_init(PB_EVT_0,PB_EVT_1);
 
   meshconn_init();
   moistsrv_init();
+
+  adc_init();
+  printf("ADC Test Reading: %04X\n", adc_get_reading_sync());
 
   while (1) {
     struct gecko_cmd_packet *evt = gecko_wait_event();
