@@ -72,7 +72,7 @@ void pb_start() {
  * Must be called after pb_init and also after (or during) evt_system_boot.
  * Also, be aware that if an interrupt occurs during the call jump, you may still
  * end up with one more event.
-1 *
+ *
  * @return void
  */
 void pb_stop() {
@@ -88,7 +88,13 @@ void pb_stop() {
 	SLEEP_SleepBlockEnd(sleepEM3);
 }
 
-/* TODO: Documentation */
+/*
+ * @brief Gets the immediate value of pushbutton 0.
+ *
+ * Must be called after pb_init. The BT stack, however, is not required.
+ *
+ * @return True for pushed. False for released.
+ */
 bool pb_get_pb0() {
 	if (GPIO_PinInGet(PB0_PORT, PB0_PIN)) {
 		return false;
@@ -97,7 +103,13 @@ bool pb_get_pb0() {
 	}
 }
 
-/* TODO: Documentation */
+/*
+ * @brief Gets the immediate value of pushbutton 1.
+ *
+ * Must be called after pb_init. The BT stack, however, is not required.
+ *
+ * @return True for pushed. False for released.
+ */
 bool pb_get_pb1() {
 	if (GPIO_PinInGet(PB1_PORT, PB1_PIN)) {
 		return false;
