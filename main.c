@@ -56,7 +56,6 @@
 #include "src/pb_driver_bt.h"
 #include <src/meshconn_module.h>
 #include <src/moistsrv_module.h>
-#include <src/adc_driver.h>
 
 
 /***********************************************************************************************//**
@@ -94,6 +93,7 @@ uint8_t boot_to_dfu = 0;
 
 const gecko_configuration_t config =
 {
+  .sleep.flags = SLEEP_FLAGS_DEEP_SLEEP_ENABLE,
   .bluetooth.max_connections = MAX_CONNECTIONS,
   .bluetooth.max_advertisers = MAX_ADVERTISERS,
   .bluetooth.heap = bluetooth_stack_heap,
@@ -145,6 +145,7 @@ int main()
   gecko_bgapi_class_mesh_generic_server_init();
   gecko_bgapi_class_mesh_proxy_server_init();
   gecko_bgapi_class_mesh_proxy_init();
+  gecko_bgapi_class_mesh_lpn_init();
 
   gecko_initCoexHAL();
 
@@ -154,9 +155,6 @@ int main()
 
   meshconn_init();
   moistsrv_init();
-
-  adc_init();
-  printf("ADC Test Reading: %04X\n", adc_get_reading_sync());
 
   while (1) {
     struct gecko_cmd_packet *evt = gecko_wait_event();

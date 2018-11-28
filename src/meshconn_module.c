@@ -65,6 +65,7 @@ static void _reset_state() {
 	state = booted;
 	LCD_write("Mesh ADDR", LCD_ROW_BTADDR1);
 	LCD_write("", LCD_ROW_BTADDR2);
+	LCD_write("", LCD_ROW_PASSKEY);
 	LCD_write("Booting...", LCD_ROW_CONNECTION);
 }
 
@@ -220,6 +221,7 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			debug_log("evt_mesh_node_provisioning_started");
 			state = provisioning;
 			LCD_write("Provisioning...", LCD_ROW_CONNECTION);
+			LCD_write("", LCD_ROW_PASSKEY);
 			break;
 
 		case gecko_evt_mesh_node_static_oob_request_id:
@@ -261,6 +263,7 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 		case gecko_evt_mesh_node_provisioning_failed_id:
 			debug_log("evt_mesh_node_provisioning_failed");
 			printf("Reason: %04X\n",evt->data.evt_mesh_node_provisioning_failed.result);
+			LCD_write("", LCD_ROW_PASSKEY);
 
 			_stop_blinking();
 			/* If we were trying to be provisioned and failed, then go back to beaconing in hopes of being provisioned */
@@ -269,6 +272,7 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 
 		case gecko_evt_mesh_node_provisioned_id:
 			debug_log("evt_mesh_node_provisioned");
+			LCD_write("", LCD_ROW_PASSKEY);
 
 			_activate_network();
 			_stop_blinking();

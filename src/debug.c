@@ -40,6 +40,10 @@ void debug_assert(const bool condition, const char* message, const char* file, c
  *
  * @return void
  */
+
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+
 void debug_throw(const char* message, const char* file, const uint32_t line) {
 	/* Turn off interrupts */
 	CORE_ATOMIC_IRQ_DISABLE();
@@ -62,3 +66,5 @@ void debug_log(const char* message) {
 	printf(message);
 	printf("\n");
 }
+
+#pragma GCC pop_options

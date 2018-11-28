@@ -22,11 +22,14 @@
 #include <mesh_generic_model_capi_types.h>
 #include <mesh_lib.h>
 
+#include <sleep.h>
+
 #include "meshconn_module.h"
 #include "moistsrv_module.h"
 
 #include "lcd_driver.h"
 #include "pb_driver_bt.h"
+#include "soil_driver.h"
 
 #include "utils_bt.h"
 #include "mesh_utils.h"
@@ -44,7 +47,6 @@ typedef PACKSTRUCT(struct {
 }) persistent_data;
 
 static persistent_data settings;
-static struct mesh_generic_state current_state;
 static bool disable_deep_sleep = false;
 static bool ready = false;
 
@@ -73,6 +75,9 @@ void _handle_server_change(uint16_t model_id,
         const struct mesh_generic_state *target,
         uint32_t remaining_ms);
 void _init_and_register_models();
+static void _become_lpn();
+static void _try_befriending_later();
+static void _get_friend();
 
 static void _toast(char *message) {
 	LCD_write("", LCD_ROW_ACTION);
@@ -87,6 +92,7 @@ static void _save_settings() {
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_flash_ps_save(ALARM_FLASH_KEY,2,(uint8_t*) &settings)
 			->result, "Failed to save new alarm setting.");
+	debug_log("Settings saved.");
 }
 
 // TODO: Documentation
@@ -99,7 +105,7 @@ static void _save_settings_eventually() {
 // TODO: Documentation
 static void _set_alarm_level(uint16_t new_level) {
 	settings.alarm_level = new_level;
-	sprintf(prompt_buffer, "New: 0x%04X",current_state.level.level);
+	sprintf(prompt_buffer, "New: 0x%04X", settings.alarm_level);
 	_toast(prompt_buffer);
 	_save_settings_eventually();
 }
@@ -174,9 +180,9 @@ void _handle_client_request(uint16_t model_id,
 
 	printf("Received change request from %04X. Target: %d\n", client_addr, request->level);
 	struct mesh_generic_state old_state;
-	memcpy(&old_state,&current_state,sizeof(current_state));
 
 	if (request_flags & MESH_REQUEST_FLAG_RESPONSE_REQUIRED) {
+		old_state.level.level = settings.alarm_level;
 		mesh_lib_generic_server_response(
 				model_id,
 				element_index,
@@ -188,7 +194,6 @@ void _handle_client_request(uint16_t model_id,
 				0);
 	} else {
 		_set_alarm_level(request->level);
-		_update_level(request->level);
 	}
 }
 
@@ -199,7 +204,6 @@ void _handle_server_change(uint16_t model_id,
         const struct mesh_generic_state *target,
         uint32_t remaining_ms) {
 	printf("Received state change. New target: %d\n", target->level.level);
-	//_set_alarm_level(target->level.level);
 }
 
 // TODO: Documentation
@@ -208,7 +212,6 @@ void _init_and_register_models() {
 	debug_log("Starting up meshlib...");
 	DEBUG_ASSERT_BGAPI_SUCCESS(mesh_lib_init(malloc, free, 8),
 			"Failed to init mesh_lib");
-
 
 	/* Initialize our model data */
 	debug_log("Setting up model data...");
@@ -227,8 +230,39 @@ void _init_and_register_models() {
 }
 
 // TODO: Documentation
-void moistsrv_init() {
+void _become_lpn() {
+	debug_log("Becoming friend...");
+	DEBUG_ASSERT_BGAPI_SUCCESS(
+			gecko_cmd_mesh_lpn_init()
+			->result, "Failed to initialize LPN functionality.");
 
+	DEBUG_ASSERT_BGAPI_SUCCESS(
+			gecko_cmd_mesh_lpn_configure(LPN_QUEUE_DEPTH, LPN_POLL_TIMEOUT)
+			->result, "Failed to set LPN requirements.");
+
+	_get_friend();
+}
+
+// TODO: Documentation
+void _try_befriending_later() {
+	DEBUG_ASSERT_BGAPI_SUCCESS(
+			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(BEFRIEND_RETRY_DELAY), BEFRIEND_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
+			->result, "Failed to start friendship retry timer.");
+}
+
+// TODO: Documentation
+void _get_friend() {
+	DEBUG_ASSERT_BGAPI_SUCCESS(
+			gecko_cmd_mesh_lpn_establish_friendship(0)
+			->result, "Failed to start looking for a friend.");
+}
+
+
+// TODO: Documentation
+void moistsrv_init() {
+	soil_init();
+	printf("ADC Test Reading: %04X\n", soil_get_reading_sync());
+	soil_deinit();
 }
 
 // TODO: Documentation
@@ -247,13 +281,20 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 				}
 			}
 			if(evt->data.evt_system_external_signal.extsignals & CORE_EVT_NETWORK_READY) {
+				/* Initialize the mesh models */
 				_init_and_register_models();
+
+				/* If we're allowed to go into deep sleep, switch to low power. */
+				if (!disable_deep_sleep) {
+					_become_lpn();
+				} else {
+					debug_log("Skipping LPN mode due to boot button.");
+				}
 			}
 			if(evt->data.evt_system_external_signal.extsignals & PB_EVT_0) {
 				printf("PB0\n");
 				if (meshconn_get_state() == network_ready && ready) {
 					_toast("Forced TX");
-					//_update_level(++current_state.level.level);
 					_update_level(MOIST_ALARM_FLAG);
 					_publish_level();
 				}
@@ -262,13 +303,38 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 
 	    case gecko_evt_mesh_generic_server_client_request_id:
 	        debug_log("gecko_evt_mesh_generic_server_client_request_id");
+
+	        /* forward the event to mesh_lib */
 	        mesh_lib_generic_server_event_handler(evt);
 	        break;
 
 	    case gecko_evt_mesh_generic_server_state_changed_id:
 	        debug_log("gecko_evt_mesh_generic_server_state_changed_id");
+
+	        /* forward the event to mesh_lib */
 	    	mesh_lib_generic_server_event_handler(evt);
 	    	break;
+
+	    case gecko_evt_mesh_lpn_friendship_established_id:
+	        debug_log("gecko_evt_mesh_lpn_friendship_established_id");
+	        printf("Maximum Sleep mode: %d\n",SLEEP_LowestEnergyModeGet());
+	        /* Yay! Friends! Do nothing! */
+	    	break;
+
+	    case gecko_evt_mesh_lpn_friendship_failed_id:
+	        debug_log("gecko_evt_mesh_lpn_friendship_failed_id");
+
+	        /* Try looking for a friend again after a bit. */
+	        _try_befriending_later();
+	    	break;
+
+	    case gecko_evt_mesh_lpn_friendship_terminated_id:
+	        debug_log("gecko_evt_mesh_lpn_friendship_terminated_id");
+
+	        /* Reach out for a new friend since we lost ours. */
+	        _get_friend();
+	        break;
+
 
 	    case gecko_evt_hardware_soft_timer_id:
 	    	switch (evt->data.evt_hardware_soft_timer.handle) {
@@ -278,6 +344,10 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	    			break;
 	    		case TOAST_TIMER_HANDLE:
 	    			LCD_write("", LCD_ROW_ACTION);
+	    			break;
+	    		case BEFRIEND_TIMER_HANDLE:
+	    			/* Retry making friends since we lost our old one or couldn't find one. */
+	    			_get_friend();
 	    			break;
 	    		default:
 	    			break;

@@ -15,15 +15,21 @@
 
 #define MOIST_ALARM_FLAG (0x7FFF)
 
+#define LPN_QUEUE_DEPTH (4)
+#define LPN_POLL_TIMEOUT (30000) /* ms */
+
 #define MOISTSRV_TIMER_HANDLE_BASE (10)
 
 #define MOISTURE_ELEMENT_INDEX (0) /* Why 0? Because their system doesn't currently make an element array constant. >.< */
 
-#define SAVE_TIMER_HANDLE (MOISTSRV_TIMER_HANDLE_BASE + 1)
+#define SAVE_TIMER_HANDLE (MOISTSRV_TIMER_HANDLE_BASE + 0)
 #define SAVE_DELAY (10.000) /* s */
 
-#define TOAST_TIMER_HANDLE (MOISTSRV_TIMER_HANDLE_BASE + 2)
+#define TOAST_TIMER_HANDLE (MOISTSRV_TIMER_HANDLE_BASE + 1)
 #define TOAST_DURATION (3.000) /* s */
+
+#define BEFRIEND_TIMER_HANDLE (MOISTSRV_TIMER_HANDLE_BASE + 2)
+#define BEFRIEND_RETRY_DELAY (5.000) /* s */
 
 
 void moistsrv_init();
