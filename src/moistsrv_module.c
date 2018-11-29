@@ -49,6 +49,8 @@ typedef PACKSTRUCT(struct {
 static persistent_data settings;
 static bool disable_deep_sleep = false;
 static bool ready = false;
+static uint8_t conn_count = 0;
+
 
 #define ALARM_FLASH_KEY (0x4001)
 #define DEFAULT_ALARM_LEVEL (0x7FFF)
@@ -315,6 +317,24 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	    	mesh_lib_generic_server_event_handler(evt);
 	    	break;
 
+		case gecko_evt_le_connection_opened_id:
+			debug_log("Connection opened. Turning off LPN.");
+			++conn_count;
+			DEBUG_ASSERT_BGAPI_SUCCESS(
+					gecko_cmd_mesh_lpn_init()
+					->result, "Failed to initialize LPN functionality.");
+			break;
+
+	    case gecko_evt_le_connection_closed_id:
+	    	--conn_count;
+	    	if (conn_count <= 0) {
+	    		if (ready && !disable_deep_sleep) {
+	    			debug_log("All connections closed. Turning on LPN.");
+	    			_become_lpn();
+	    		}
+	    	}
+			break;
+
 	    case gecko_evt_mesh_lpn_friendship_established_id:
 	        debug_log("gecko_evt_mesh_lpn_friendship_established_id");
 	        debug_log("Maximum Sleep mode: %d\n",SLEEP_LowestEnergyModeGet());
@@ -343,6 +363,7 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	    			_save_settings();
 	    			break;
 	    		case TOAST_TIMER_HANDLE:
+	    			/* After the toast ends, clear the toast. */
 	    			LCD_write("", LCD_ROW_ACTION);
 	    			break;
 	    		case BEFRIEND_TIMER_HANDLE:
