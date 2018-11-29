@@ -16,9 +16,8 @@
 
 /* Define this to enable verbose debug output */
 #define DEBUG_VERBOSE
-/* Define this to enable advertisement decode output (Not recommended in crowded environments) */
-// #define DEBUG_VERY_VERBOSE
 
+/* Macros for automatically including line numbers and file names */
 #define DEBUG_ASSERT(condition,message) debug_assert(condition, message, __FILE__, __LINE__)
 #define DEBUG_ASSERT_BGAPI_SUCCESS(result,message) debug_assert_BGAPI_success(result, message, __FILE__, __LINE__)
 #define DEBUG_THROW(message) debug_throw(message, __FILE__, __LINE__)
@@ -26,6 +25,6 @@
 void debug_assert(const bool condition, const char* message, const char* file, const uint32_t line);
 void debug_throw(const char* message, const char* file, const uint32_t line);
 void debug_assert_BGAPI_success(const errorcode_t result, const char *message, const char* file, const uint32_t line);
-void debug_log(const char* message);
+void debug_log(const char* format, ...);
 
 #endif /* SRC_DEBUG_H_ */

@@ -293,12 +293,6 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 
 		case gecko_evt_mesh_node_display_output_oob_id:
 			debug_log("evt_mesh_node_display_output_oob");
-			printf("Data size: %u\n", (uint16_t) evt->data.evt_mesh_node_display_output_oob.data.len);
-			printf("Data: ");
-			for (uint8_t i=0;i<evt->data.evt_mesh_node_display_output_oob.data.len;i++) {
-				printf("%02X", evt->data.evt_mesh_node_display_output_oob.data.data[i]);
-			}
-			printf("\n");
 
 			switch(evt->data.evt_mesh_node_display_output_oob.output_action) {
 				case MESH_PROV_OOB_DISPLY_BLINK:

@@ -144,7 +144,7 @@ static void _publish_level() {
 			MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
 			MOISTURE_ELEMENT_INDEX,
 			mesh_generic_state_level);
-	printf("Published. Result: 0x%04X\n", result);
+	debug_log("Published. Result: 0x%04X", result);
 }
 
 // TODO: Documentation
@@ -164,7 +164,7 @@ static void _update_level(uint16_t level) {
 			&outbound_state,
 			&next_state,
 			0);
-	printf("Updated. Result: 0x%04X\n", result);
+	debug_log("Updated. Result: 0x%04X", result);
 }
 
 // TODO: Documentation
@@ -178,7 +178,7 @@ void _handle_client_request(uint16_t model_id,
         uint16_t delay_ms,
         uint8_t request_flags) {
 
-	printf("Received change request from %04X. Target: %d\n", client_addr, request->level);
+	debug_log("Received change request from %04X. Target: %d", client_addr, request->level);
 	struct mesh_generic_state old_state;
 
 	if (request_flags & MESH_REQUEST_FLAG_RESPONSE_REQUIRED) {
@@ -203,7 +203,7 @@ void _handle_server_change(uint16_t model_id,
         const struct mesh_generic_state *current,
         const struct mesh_generic_state *target,
         uint32_t remaining_ms) {
-	printf("Received state change. New target: %d\n", target->level.level);
+	debug_log("Received state change. New target: %d", target->level.level);
 }
 
 // TODO: Documentation
@@ -261,7 +261,7 @@ void _get_friend() {
 // TODO: Documentation
 void moistsrv_init() {
 	soil_init();
-	printf("ADC Test Reading: %04X\n", soil_get_reading_sync());
+	debug_log("ADC Test Reading: %04X\n", soil_get_reading_sync());
 	soil_deinit();
 }
 
@@ -292,7 +292,7 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 				}
 			}
 			if(evt->data.evt_system_external_signal.extsignals & PB_EVT_0) {
-				printf("PB0\n");
+				debug_log("PB0\n");
 				if (meshconn_get_state() == network_ready && ready) {
 					_toast("Forced TX");
 					_update_level(MOIST_ALARM_FLAG);
@@ -317,7 +317,7 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 
 	    case gecko_evt_mesh_lpn_friendship_established_id:
 	        debug_log("gecko_evt_mesh_lpn_friendship_established_id");
-	        printf("Maximum Sleep mode: %d\n",SLEEP_LowestEnergyModeGet());
+	        debug_log("Maximum Sleep mode: %d\n",SLEEP_LowestEnergyModeGet());
 	        /* Yay! Friends! Do nothing! */
 	    	break;
 
