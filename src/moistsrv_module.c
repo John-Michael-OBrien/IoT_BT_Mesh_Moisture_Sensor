@@ -58,9 +58,8 @@ static uint8_t conn_count = 0;
 static void _toast(char *message);
 static void _save_settings();
 static void _load_settings();
-static void _save_settings_eventually();
 static void _set_alarm_level(uint16_t new_level);
-static void _publish_level();
+static void _publish_moisture(uint16_t level);
 static void _update_level(uint16_t level);
 void _handle_client_request(uint16_t model_id,
         uint16_t element_index,
@@ -78,18 +77,31 @@ void _handle_server_change(uint16_t model_id,
         uint32_t remaining_ms);
 void _init_and_register_models();
 static void _become_lpn();
-static void _try_befriending_later();
 static void _get_friend();
 
+/*
+ * @brief Briefly displays a message on the LCD
+ *
+ * @param message The message to be displayed
+ *
+ * @return void
+ */
 static void _toast(char *message) {
+	/* Clear the LCD first. This will cause a flicker for fast toasts so we can tell. */
 	LCD_write("", LCD_ROW_ACTION);
+	/* Write the message to the LCD */
 	LCD_write(message, LCD_ROW_ACTION);
+	/* Start the timer to clear the message off the screen. */
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(TOAST_DURATION), TOAST_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
 			->result, "Failed to save new alarm setting.");
 }
 
-// TODO: Documentation
+/*
+ * @brief Commits the settings to flash.
+ *
+ * @return void
+ */
 static void _save_settings() {
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_flash_ps_save(ALARM_FLASH_KEY,2,(uint8_t*) &settings)
@@ -97,22 +109,34 @@ static void _save_settings() {
 	debug_log("Settings saved.");
 }
 
-// TODO: Documentation
-static void _save_settings_eventually() {
+/*
+ * @brief Sets the new alarm level, updates the associated models, and saves the new settings.
+ *
+ * @param level The new value our setting should be changed to.
+ *
+ * @return void
+ */
+static void _set_alarm_level(uint16_t new_level) {
+	/* Record the new setting */
+	settings.alarm_level = new_level;
+	/* And update the underlying model */
+	_update_level(new_level);
+
+	/* Show it to the user */
+	sprintf(prompt_buffer, "New: 0x%04X", settings.alarm_level);
+	_toast(prompt_buffer);
+
+	/* Start the timer to save the settings eventually */
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(SAVE_DELAY), SAVE_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
 			->result, "Failed to save new alarm setting.");
 }
 
-// TODO: Documentation
-static void _set_alarm_level(uint16_t new_level) {
-	settings.alarm_level = new_level;
-	sprintf(prompt_buffer, "New: 0x%04X", settings.alarm_level);
-	_toast(prompt_buffer);
-	_save_settings_eventually();
-}
-
-// TODO: Documentation
+/*
+ * @brief Loads settings from flash, and failing that, loads some defaults and saves them.
+ *
+ * @return void
+ */
 static void _load_settings() {
 	struct gecko_msg_flash_ps_load_rsp_t *result;
 	bool loaded = false;
@@ -127,29 +151,56 @@ static void _load_settings() {
 	if (result->result == bg_err_success) {
 		/* And it looks like the kind of data it's supposed to be */
 		if(result->value.len == sizeof(settings)) {
+			/* Set our settings */
 			settings = *((persistent_data*) result->value.data);
 			debug_log("Successfully loaded non-default values");
 			loaded = true;
 		}
 	}
+
+	/* If we weren't able to load the settings */
 	if (!loaded) {
 		debug_log("Using defaults and initializing flash...");
+		/* Push the defaults back to the flash */
 		_save_settings();
 	}
-	debug_log("Finished loading settings.");
+
+	debug_log("Finished loading settings. Alarm level loaded is %d.", settings.alarm_level);
 }
 
-// TODO: Documentation
-static void _publish_level() {
+/*
+ * @brief Publishes the moisture level or alarm to the network.
+ *
+ * This is weird because of the multiplexing. Since the BGAPI will only publish its internal
+ * copy of the model state, we need to update their copy, publish (which sends it out to the network)
+ * and then revert their copy back to the alarm level setting. This makes for a whole nightmare of
+ * possible race conditions, but we're just going to deal with it for now since it won't break
+ * anything.
+ *
+ * @param level The moisture level to be published to the network.
+ *
+ * @return void
+ */
+static void _publish_moisture(uint16_t level) {
 	errorcode_t result;
-	result = mesh_lib_generic_server_publish(
-			MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
-			MOISTURE_ELEMENT_INDEX,
-			mesh_generic_state_level);
+	_update_level(level);
+	DEBUG_ASSERT_BGAPI_SUCCESS(
+			mesh_lib_generic_server_publish(
+						MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
+						MOISTURE_ELEMENT_INDEX,
+						mesh_generic_state_level),
+			"Failed to publish moisture.");
+	_update_level(settings.alarm_level);
 	debug_log("Published. Result: 0x%04X", result);
 }
 
-// TODO: Documentation
+/*
+ * @brief Updates the BGAPI copy of our data
+ *
+ * @param level The new value our model should be updated to.
+ *
+ * @return void
+ */
 static void _update_level(uint16_t level) {
 	struct mesh_generic_state outbound_state;
 	struct mesh_generic_state next_state;
@@ -169,7 +220,26 @@ static void _update_level(uint16_t level) {
 	debug_log("Updated. Result: 0x%04X", result);
 }
 
-// TODO: Documentation
+/*
+ * @brief Callback for server status changes to the generic level model
+ *
+ * Normally we'd update our variables here, but because of the multiplexing of the
+ * model, this function is too generic for us to do that since it gets called with
+ * both internal and external changes. Since we do different things for Get/Set and
+ * internal updates (which are often temporary) we do nothing here.
+ *
+ * @param element_index The index of the element which the request is being sent to.
+ * @param client_addr The address of the client that is making the request.
+ * @param server_addr The address that the request was sent to.
+ * @param appkey_index The index of the key that is associated with this request.
+ * @param appkey_index The index of the key that is associated with this request.
+ * @param request The actual request data itself.
+ * @param transition_ms The number of milliseconds we should take to make the change.
+ * @param delay_ms The number of milliseconds we should wait before starting the change.
+ * @param request_flags The flags associated with the request (direct request/provide a response.)
+ *
+ * @return void
+ */
 void _handle_client_request(uint16_t model_id,
         uint16_t element_index,
         uint16_t client_addr,
@@ -180,11 +250,26 @@ void _handle_client_request(uint16_t model_id,
         uint16_t delay_ms,
         uint8_t request_flags) {
 
-	debug_log("Received change request from %04X. Target: %d", client_addr, request->level);
 	struct mesh_generic_state old_state;
 
+	/* If it's not a generic level request, bail */
+	if (request->kind != mesh_generic_request_level) {
+		return;
+	}
+
+	debug_log("Received change request from %04X. Target: %d", client_addr, request->level);
+
+	/* If it's different than what we had before */
+	if (request->level != settings.alarm_level) {
+		/* Update our setting */
+		_set_alarm_level(request->level);
+	}
+
+	/* If we are supposed to respond  */
 	if (request_flags & MESH_REQUEST_FLAG_RESPONSE_REQUIRED) {
+		/* Set the level to our alarm level */
 		old_state.level.level = settings.alarm_level;
+		/* And send that to our client. */
 		mesh_lib_generic_server_response(
 				model_id,
 				element_index,
@@ -194,12 +279,24 @@ void _handle_client_request(uint16_t model_id,
 				&old_state,
 				0,
 				0);
-	} else {
-		_set_alarm_level(request->level);
 	}
 }
 
-// TODO: Documentation
+/*
+ * @brief Callback for server status changes to the generic level model
+ *
+ * Normally we'd update our variables here, but because of the multiplexing of the
+ * model, this function is too generic for us to do that since it gets called with
+ * both internal and external changes. Since we do different things for Get/Set and
+ * internal updates (which are often temporary) we do nothing here.
+ *
+ * @param model_id The ID of the model that the callback is handling.
+ * @param current The last model state that the BGAPI had before the change.
+ * @param target The last model state that that we are supposed to change to.
+ * @param remaining_ms The number of milliseconds until we're supposed to finish the change.
+ *
+ * @return void
+ */
 void _handle_server_change(uint16_t model_id,
         uint16_t element_index,
         const struct mesh_generic_state *current,
@@ -208,16 +305,18 @@ void _handle_server_change(uint16_t model_id,
 	debug_log("Received state change. New target: %d", target->level.level);
 }
 
-// TODO: Documentation
+/*
+ * @brief Initializes mesh_lib, registers our model event handlers, and initializes our internal state.
+ *
+ * @return void
+ */
 void _init_and_register_models() {
-	/* Init Mesh Lib now that we're provisioned. */
+	/* Init mesh_lib now that we're provisioned. */
 	debug_log("Starting up meshlib...");
 	DEBUG_ASSERT_BGAPI_SUCCESS(mesh_lib_init(malloc, free, 8),
 			"Failed to init mesh_lib");
 
-	/* Initialize our model data */
-	debug_log("Setting up model data...");
-
+	/* Register our model handler. */
 	debug_log("Registering models...");
 	DEBUG_ASSERT_BGAPI_SUCCESS(mesh_lib_generic_server_register_handler(
 		MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
@@ -225,13 +324,19 @@ void _init_and_register_models() {
 		_handle_client_request,
 		_handle_server_change),"Error registering generic level model.");
 
+	/* Set the initial level from our alarm settings. */
 	_update_level(settings.alarm_level);
 
+	/* Mark that we're fully configured and it's safe to make calls against mesh_lib */
 	ready = true;
 	debug_log("Registered.");
 }
 
-// TODO: Documentation
+/*
+ * @brief Initializes the LPN subsystem, configures it, and attempts to establish a friendship.
+ *
+ * @return void
+ */
 void _become_lpn() {
 	debug_log("Becoming friend...");
 	DEBUG_ASSERT_BGAPI_SUCCESS(
@@ -245,14 +350,14 @@ void _become_lpn() {
 	_get_friend();
 }
 
-// TODO: Documentation
-void _try_befriending_later() {
-	DEBUG_ASSERT_BGAPI_SUCCESS(
-			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(BEFRIEND_RETRY_DELAY), BEFRIEND_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
-			->result, "Failed to start friendship retry timer.");
-}
-
-// TODO: Documentation
+/*
+ * @brief Attempts to establish a connection to a friend.
+ *
+ * Mostly just a wrapper on gecko_cmd_mesh_lpn_establish_friendship to allow for unification
+ * of code paths as this gets called a few different ways.
+ *
+ * @return void
+ */
 void _get_friend() {
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_mesh_lpn_establish_friendship(0)
@@ -260,14 +365,27 @@ void _get_friend() {
 }
 
 
-// TODO: Documentation
+/*
+ * @brief Initializes the Moisture Server module. This includes taking the initial
+ * moisture measurement.
+ *
+ * @return void
+ */
 void moistsrv_init() {
 	soil_init();
 	debug_log("ADC Test Reading: %04X\n", soil_get_reading_sync());
 	soil_deinit();
 }
 
-// TODO: Documentation
+/*
+ * @brief Responds to events generated by the BGAPI message queue
+ * that are related to the moisture server module.
+ *
+ * @param evt_id The ID of the event.
+ * @param evt A pointer to the structure holding the event data.
+ *
+ * @return void
+ */
 void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	switch(evt_id) {
 		case gecko_evt_system_external_signal_id:
@@ -297,8 +415,7 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 				debug_log("PB0\n");
 				if (meshconn_get_state() == network_ready && ready) {
 					_toast("Forced TX");
-					_update_level(MOIST_ALARM_FLAG);
-					_publish_level();
+					_publish_moisture(MOIST_ALARM_FLAG);
 				}
 			}
 			break;
@@ -345,7 +462,9 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	        debug_log("gecko_evt_mesh_lpn_friendship_failed_id");
 
 	        /* Try looking for a friend again after a bit. */
-	        _try_befriending_later();
+	    	DEBUG_ASSERT_BGAPI_SUCCESS(
+	    			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(BEFRIEND_RETRY_DELAY), BEFRIEND_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
+	    			->result, "Failed to start friendship retry timer.");
 	    	break;
 
 	    case gecko_evt_mesh_lpn_friendship_terminated_id:
