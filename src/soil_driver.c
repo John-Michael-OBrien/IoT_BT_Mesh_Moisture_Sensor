@@ -28,7 +28,11 @@ static void _power_on_sensor();
 static void _power_off_sensor();
 
 
-// TODO: Documentation
+/*
+ * @brief Starts and configures the ADC and associated GPIO pins.
+ *
+ * @return void
+ */
 void soil_init() {
 	ADC_Init_TypeDef _init_settings = ADC_INIT_DEFAULT;
 	ADC_InitSingle_TypeDef _init_settings_single = ADC_INITSINGLE_DEFAULT;
@@ -61,22 +65,43 @@ void soil_init() {
 	return;
 }
 
+/*
+ * @brief Starts up the sensor
+ *
+ * @return void
+ */
 static void _power_on_sensor() {
+	/* Turn on the power management pin */
 	GPIO_PinModeSet(SOIL_PWR_PORT,SOIL_PWR_PIN, gpioModePushPull, false);
 	GPIO_PinOutSet(SOIL_PWR_PORT,SOIL_PWR_PIN);
 }
 
+/*
+ * @brief Shuts down the sensor
+ *
+ * @return void
+ */
 static void _power_off_sensor() {
+	/* Turn off the power management pin */
 	GPIO_PinOutClear(SOIL_PWR_PORT,SOIL_PWR_PIN);
 	GPIO_PinModeSet(SOIL_PWR_PORT,SOIL_PWR_PIN, gpioModeDisabled, false);
 }
 
+/*
+ * @brief Shuts down the ADC
+ *
+ * @return void
+ */
 void soil_deinit() {
 	ADC_Reset(ADC0);
 	CMU_ClockEnable(cmuClock_ADC0, false);
 }
 
-// TODO: Documentation
+/*
+ * @brief Synchronously starts the sensor, takes a measurement, and shuts down the sensor.
+ *
+ * @return The ADC result of the soil reading
+ */
 uint16_t soil_get_reading_sync() {
 	_power_on_sensor();
 	ADC_Start(ADC0, adcStartSingle);

@@ -125,10 +125,9 @@ int main()
   RETARGET_SerialInit();
   RETARGET_SerialCrLf(true);
 
-  printf("\n\n\n\n");
+  debug_log("\n\n\n\n");
 
-
-
+  /* Initialize the associated BGAPI classes */
   gecko_stack_init(&config);
   gecko_bgapi_class_dfu_init();
   gecko_bgapi_class_system_init();
@@ -149,18 +148,25 @@ int main()
 
   gecko_initCoexHAL();
 
+  /* Set the screen up */
   LCD_init("Mesh Sensor");
+  /* Initialize our LED driver */
   led_init();
+  /* And get the Pushbuttons ready to be started. */
   pb_init(PB_EVT_0,PB_EVT_1);
 
+  /* Initialize our mesh connection library */
   meshconn_init();
+  /* And initialize our moisture sensor software */
   moistsrv_init();
 
+  /* Main Loop */
   while (1) {
     struct gecko_cmd_packet *evt = gecko_wait_event();
     bool pass = mesh_bgapi_listener(evt);
     if (pass) {
-      printf("EVENT: %08lX\n", evt->header);
+      /* if the BGAPI tells us it's a message we need to handle, pass it on to the handlers in our various modules */
+      debug_log("EVENT: %08lX", evt->header);
       handle_gecko_event(BGLIB_MSG_ID(evt->header), evt);
 	  meshconn_handle_events(BGLIB_MSG_ID(evt->header), evt);
 	  moistsrv_handle_events(BGLIB_MSG_ID(evt->header), evt);
@@ -168,6 +174,7 @@ int main()
   }
 }
 
+/* The event handler from Silicon Labs; handles OTA stuff. */
 static void handle_gecko_event(uint32_t evt_id, struct gecko_cmd_packet *evt)
 {
   switch (evt_id) {
