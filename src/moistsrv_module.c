@@ -119,8 +119,6 @@ static void _save_settings() {
 static void _set_alarm_level(uint16_t new_level) {
 	/* Record the new setting */
 	settings.alarm_level = new_level;
-	/* And update the underlying model */
-	_update_level(new_level);
 
 	/* Show it to the user */
 	sprintf(prompt_buffer, "New: 0x%04X", settings.alarm_level);
@@ -171,12 +169,6 @@ static void _load_settings() {
 /*
  * @brief Publishes the moisture level or alarm to the network.
  *
- * This is weird because of the multiplexing. Since the BGAPI will only publish its internal
- * copy of the model state, we need to update their copy, publish (which sends it out to the network)
- * and then revert their copy back to the alarm level setting. This makes for a whole nightmare of
- * possible race conditions, but we're just going to deal with it for now since it won't break
- * anything.
- *
  * @param level The moisture level to be published to the network.
  *
  * @return void
@@ -184,20 +176,17 @@ static void _load_settings() {
 static void _publish_moisture(uint16_t level) {
 	errorcode_t result;
 	_update_level(level);
-	DEBUG_ASSERT_BGAPI_SUCCESS(
-			mesh_lib_generic_server_publish(
-						MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
-						MOISTURE_ELEMENT_INDEX,
-						mesh_generic_state_level),
-			"Failed to publish moisture.");
-	_update_level(settings.alarm_level);
+	result=mesh_lib_generic_server_publish(
+				MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
+				MOISTURE_ELEMENT_INDEX,
+				mesh_generic_state_level);
 	debug_log("Published. Result: 0x%04X", result);
 }
 
 /*
  * @brief Updates the BGAPI copy of our data
  *
- * @param level The new value our model should be updated to.
+ * @param level The new moisture value our model should be updated to.
  *
  * @return void
  */
@@ -323,9 +312,6 @@ void _init_and_register_models() {
 		MOISTURE_ELEMENT_INDEX, // Why 0? Because their system doesn't currently make an element array constant. >.<
 		_handle_client_request,
 		_handle_server_change),"Error registering generic level model.");
-
-	/* Set the initial level from our alarm settings. */
-	_update_level(settings.alarm_level);
 
 	/* Mark that we're fully configured and it's safe to make calls against mesh_lib */
 	ready = true;
