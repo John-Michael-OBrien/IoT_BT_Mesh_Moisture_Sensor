@@ -53,6 +53,12 @@ void debug_assert(const bool condition, const char* message, const char* file, c
 void debug_throw(const char* message, const char* file, const uint32_t line) {
 	/* Turn off interrupts */
 	CORE_ATOMIC_IRQ_DISABLE();
+
+	/* Write to the user what's wrong */
+	debug_log("THROW in %s on line %d!", file, line);
+	debug_log("Last BGAPI error: 0x%04X", debug_last_BGAPI_error);
+	debug_log("Message: %s", message);
+
 	/* And capture the CPU in a hot hold so we can hit it with the debugger */
 	while (1) {
 
