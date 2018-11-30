@@ -108,74 +108,89 @@ const gecko_configuration_t config =
   .max_timers = 16,
 };
 
-static void handle_gecko_event(uint32_t evt_id, struct gecko_cmd_packet *evt);
+static void _handle_gecko_event(uint32_t evt_id, struct gecko_cmd_packet *evt);
+static void _start_radio_stack();
 // void mesh_native_bgapi_init(void);
 bool mesh_bgapi_listener(struct gecko_cmd_packet *evt);
 
+/*
+ * @brief Boot code! This brings the system online.
+ *
+ * @return The exit code for the routine. Doesn't do much on an MCU.
+ */
 int main()
 {
-  // Initialize device
-  initMcu();
-  // Initialize board
-  initBoard();
-  // Initialize application
-  initApp();
+	// Initialize device
+	initMcu();
+	// Initialize board
+	initBoard();
+	// Initialize application
+	initApp();
 
-  // Initialize the UART Redirection
-  RETARGET_SerialInit();
-  RETARGET_SerialCrLf(true);
+	// Initialize the UART Redirection
+	RETARGET_SerialInit();
+	RETARGET_SerialCrLf(true);
+	debug_log("\n\n\n\n");
 
-  debug_log("\n\n\n\n");
+	/* Get the Pushbuttons ready to be started, we need them right off. */
+	pb_init(PB_EVT_0,PB_EVT_1);
+	/* And initialize our moisture sensor software */
+	moistsrv_init();
 
-  /* Initialize the associated BGAPI classes */
-  gecko_stack_init(&config);
-  gecko_bgapi_class_dfu_init();
-  gecko_bgapi_class_system_init();
-  gecko_bgapi_class_le_gap_init();
-  gecko_bgapi_class_le_connection_init();
-  gecko_bgapi_class_gatt_init();
-  gecko_bgapi_class_gatt_server_init();
-  gecko_bgapi_class_endpoint_init();
-  gecko_bgapi_class_hardware_init();
-  gecko_bgapi_class_flash_init();
-  gecko_bgapi_class_test_init();
-  gecko_bgapi_class_sm_init();
-  gecko_bgapi_class_mesh_node_init();
-  gecko_bgapi_class_mesh_generic_server_init();
-  gecko_bgapi_class_mesh_proxy_server_init();
-  gecko_bgapi_class_mesh_proxy_init();
-  gecko_bgapi_class_mesh_lpn_init();
+	_start_radio_stack();
+}
 
-  gecko_initCoexHAL();
+/*
+ * @brief Starts the Bluetooth stack and associated program tools
+ *
+ * @return void
+ */
+static void _start_radio_stack() {
+	/* Initialize the associated BGAPI classes */
+	gecko_stack_init(&config);
+	gecko_bgapi_class_dfu_init();
+	gecko_bgapi_class_system_init();
+	gecko_bgapi_class_le_gap_init();
+	gecko_bgapi_class_le_connection_init();
+	gecko_bgapi_class_gatt_init();
+	gecko_bgapi_class_gatt_server_init();
+	gecko_bgapi_class_endpoint_init();
+	gecko_bgapi_class_hardware_init();
+	gecko_bgapi_class_flash_init();
+	gecko_bgapi_class_test_init();
+	gecko_bgapi_class_sm_init();
+	gecko_bgapi_class_mesh_node_init();
+	gecko_bgapi_class_mesh_generic_server_init();
+	gecko_bgapi_class_mesh_proxy_server_init();
+	gecko_bgapi_class_mesh_proxy_init();
+	gecko_bgapi_class_mesh_lpn_init();
 
-  /* Set the screen up */
-  LCD_init("Mesh Sensor");
-  /* Initialize our LED driver */
-  led_init();
-  /* And get the Pushbuttons ready to be started. */
-  pb_init(PB_EVT_0,PB_EVT_1);
+	gecko_initCoexHAL();
 
-  /* Initialize our mesh connection library */
-  meshconn_init();
-  /* And initialize our moisture sensor software */
-  moistsrv_init();
+	/* Set the screen up */
+	LCD_init("Mesh Sensor");
+	/* Initialize our LED driver */
+	led_init();
 
-  /* Main Loop */
-  while (1) {
-    struct gecko_cmd_packet *evt = gecko_wait_event();
-    bool pass = mesh_bgapi_listener(evt);
-    if (pass) {
-      /* if the BGAPI tells us it's a message we need to handle, pass it on to the handlers in our various modules */
-      debug_log("EVENT: %08lX", evt->header);
-      handle_gecko_event(BGLIB_MSG_ID(evt->header), evt);
-	  meshconn_handle_events(BGLIB_MSG_ID(evt->header), evt);
-	  moistsrv_handle_events(BGLIB_MSG_ID(evt->header), evt);
-    }
-  }
+	/* Initialize our mesh connection library */
+	meshconn_init();
+
+	/* Main Loop */
+	while (1) {
+		struct gecko_cmd_packet *evt = gecko_wait_event();
+		bool pass = mesh_bgapi_listener(evt);
+		if (pass) {
+			/* if the BGAPI tells us it's a message we need to handle, pass it on to the handlers in our various modules */
+			debug_log("EVENT: %08lX", evt->header);
+			_handle_gecko_event(BGLIB_MSG_ID(evt->header), evt);
+			meshconn_handle_events(BGLIB_MSG_ID(evt->header), evt);
+			moistsrv_handle_events(BGLIB_MSG_ID(evt->header), evt);
+		}
+	}
 }
 
 /* The event handler from Silicon Labs; handles OTA stuff. */
-static void handle_gecko_event(uint32_t evt_id, struct gecko_cmd_packet *evt)
+static void _handle_gecko_event(uint32_t evt_id, struct gecko_cmd_packet *evt)
 {
   switch (evt_id) {
     case gecko_evt_dfu_boot_id:
