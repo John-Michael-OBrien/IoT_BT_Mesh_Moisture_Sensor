@@ -29,8 +29,10 @@
 #define TOAST_DURATION (3.000) /* s */
 
 #define BEFRIEND_TIMER_HANDLE (MOISTSRV_TIMER_HANDLE_BASE + 2)
-#define BEFRIEND_RETRY_DELAY (5.000) /* s */
+#define BEFRIEND_RETRY_DELAY (19.000) /* s */
 
+#define MEASUREMENT_TIMER_HANDLE (MOISTSRV_TIMER_HANDLE_BASE + 3)
+#define MEASUREMENT_TIME (5.000) /* s */
 
 void moistsrv_init();
 void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt);

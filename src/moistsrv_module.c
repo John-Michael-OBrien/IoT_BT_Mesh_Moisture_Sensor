@@ -23,14 +23,13 @@
 #include <mesh_lib.h>
 
 #include <sleep.h>
+#include <src/soil_driver_bt.h>
 
 #include "meshconn_module.h"
 #include "moistsrv_module.h"
 
 #include "lcd_driver.h"
 #include "pb_driver_bt.h"
-#include "soil_driver.h"
-
 #include "utils_bt.h"
 #include "mesh_utils.h"
 #include "debug.h"
@@ -61,7 +60,7 @@ static void _load_settings();
 static void _set_alarm_level(uint16_t new_level);
 static void _publish_moisture(uint16_t level);
 static void _update_level(uint16_t level);
-void _handle_client_request(uint16_t model_id,
+static void _handle_client_request(uint16_t model_id,
         uint16_t element_index,
         uint16_t client_addr,
         uint16_t server_addr,
@@ -70,14 +69,26 @@ void _handle_client_request(uint16_t model_id,
         uint32_t transition_ms,
         uint16_t delay_ms,
         uint8_t request_flags);
-void _handle_server_change(uint16_t model_id,
+static void _handle_server_change(uint16_t model_id,
         uint16_t element_index,
         const struct mesh_generic_state *current,
         const struct mesh_generic_state *target,
         uint32_t remaining_ms);
-void _init_and_register_models();
+static void _init_and_register_models();
 static void _become_lpn();
 static void _get_friend();
+static void _do_measurement();
+static void _finish_measurement();
+
+/*
+ * Why these values? Well, to be honest, the sweet spot for our project will be bewteen lux level 2 and 3.
+ * Similarly, the gap between damp and wet sand for this sensor setup seems to land at 0x0D00, with soaked sand
+ * being at 0x0D14-ish and damp being at 0x0C50. This will let us demonstrate the alarm thresholds fairly easily.
+ * The rest of the numbers are pretty much arbitrary. More engineering would be possible, but realistically this
+ * table should be set using a user settings model and a direct measurement mode.
+ */
+static const uint16_t lux_to_alarm_table[] = {0x0F00,0x0E00,0x0D00,0xC00,0xB00,0xA00,0x900,0x800,0x700,0x600,0x500};
+static const uint8_t max_lux = sizeof(lux_to_alarm_table)-1;
 
 /*
  * @brief Briefly displays a message on the LCD
@@ -117,6 +128,11 @@ static void _save_settings() {
  * @return void
  */
 static void _set_alarm_level(uint16_t new_level) {
+	/* If it's the same as what we had before, bail */
+	if (new_level == settings.alarm_level) {
+		return;
+	}
+
 	/* Record the new setting */
 	settings.alarm_level = new_level;
 
@@ -229,7 +245,7 @@ static void _update_level(uint16_t level) {
  *
  * @return void
  */
-void _handle_client_request(uint16_t model_id,
+static void _handle_client_request(uint16_t model_id,
         uint16_t element_index,
         uint16_t client_addr,
         uint16_t server_addr,
@@ -239,6 +255,7 @@ void _handle_client_request(uint16_t model_id,
         uint16_t delay_ms,
         uint8_t request_flags) {
 
+	uint16_t lux_level;
 	struct mesh_generic_state old_state;
 
 	/* If it's not a generic level request, bail */
@@ -246,13 +263,24 @@ void _handle_client_request(uint16_t model_id,
 		return;
 	}
 
+	/* Cache the value, so we can change it safely */
+	lux_level = request->level;
+
+	/* If it's an alarm, bail; we don't work with those. */
+	if (lux_level == MOIST_ALARM_FLAG) {
+		return;
+	}
+
 	debug_log("Received change request from %04X. Target: %d", client_addr, request->level);
 
-	/* If it's different than what we had before */
-	if (request->level != settings.alarm_level) {
-		/* Update our setting */
-		_set_alarm_level(request->level);
+	/* If it's off the end of our table */
+	if (lux_level > max_lux) {
+		/* Saturate to the end of the table */
+		lux_level = max_lux;
 	}
+
+	/* Get the new level from the table and set that as the alarm level */
+	_set_alarm_level(lux_to_alarm_table[lux_level]);
 
 	/* If we are supposed to respond  */
 	if (request_flags & MESH_REQUEST_FLAG_RESPONSE_REQUIRED) {
@@ -286,7 +314,7 @@ void _handle_client_request(uint16_t model_id,
  *
  * @return void
  */
-void _handle_server_change(uint16_t model_id,
+static void _handle_server_change(uint16_t model_id,
         uint16_t element_index,
         const struct mesh_generic_state *current,
         const struct mesh_generic_state *target,
@@ -299,7 +327,7 @@ void _handle_server_change(uint16_t model_id,
  *
  * @return void
  */
-void _init_and_register_models() {
+static void _init_and_register_models() {
 	/* Init mesh_lib now that we're provisioned. */
 	debug_log("Starting up meshlib...");
 	DEBUG_ASSERT_BGAPI_SUCCESS(mesh_lib_init(malloc, free, 8),
@@ -323,7 +351,7 @@ void _init_and_register_models() {
  *
  * @return void
  */
-void _become_lpn() {
+static void _become_lpn() {
 	debug_log("Becoming friend...");
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_mesh_lpn_init()
@@ -344,12 +372,48 @@ void _become_lpn() {
  *
  * @return void
  */
-void _get_friend() {
+static void _get_friend() {
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_mesh_lpn_establish_friendship(0)
 			->result, "Failed to start looking for a friend.");
 }
 
+/*
+ * @brief Starts powering on the ADC. Will raise an event when the power on delays are finished.
+ *
+ * @return void
+ */
+static void _do_measurement() {
+	/* Turn on the ADC and sensor */
+	soil_start_reading_async();
+
+}
+
+/*
+ * @brief Finishes the measurement and reports the results.
+ *
+ * Should be called when ADC_WAIT_FINISHED occurs.
+ *
+ * @return void
+ */
+static void _finish_measurement() {
+	uint16_t measurement;
+
+	/* Make the measurement */
+	measurement = soil_finish_reading_async();
+	debug_log("ADC Reading: %04X against %04X threshold", measurement, settings.alarm_level);
+	sprintf(prompt_buffer,"Wet: 0x%04X",measurement);
+	LCD_write(prompt_buffer,LCD_ROW_TEMPVALUE);
+
+	/* If we're over the limit... */
+	if (measurement > settings.alarm_level) {
+		debug_log("Sending Alarm.");
+		_publish_moisture(MOIST_ALARM_FLAG);
+	}
+
+	/* Send the measurement to the group */
+	_publish_moisture(measurement);
+}
 
 /*
  * @brief Initializes the Moisture Server module. This includes taking the initial
@@ -358,9 +422,13 @@ void _get_friend() {
  * @return void
  */
 void moistsrv_init() {
-	soil_init();
-	debug_log("ADC Test Reading: %04X\n", soil_get_reading_sync());
-	soil_deinit();
+	/* If PB1 is held down at boot, disable deep sleeping (EM2 and LPN operation) */
+	if (pb_get_pb1()) {
+		disable_deep_sleep = true;
+		debug_log("Will not enter LPN mode due to boot button.");
+	}
+	/* Prep the sensor library */
+	soil_init(ADC_WAIT_FINISHED);
 }
 
 /*
@@ -381,8 +449,8 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	    				->result,"Failed to init Generic Mesh Server");
 			}
 			if (evt->data.evt_system_external_signal.extsignals & CORE_EVT_POST_BOOT) {
-				if (pb_get_pb1()) {
-					disable_deep_sleep = true;
+				/* If we've had our sleep mode disabled, report that to the user. */
+				if (disable_deep_sleep) {
 					_toast("Forced Awake");
 				}
 			}
@@ -390,11 +458,14 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 				/* Initialize the mesh models */
 				_init_and_register_models();
 
+				/* Start taking measurements */
+		    	DEBUG_ASSERT_BGAPI_SUCCESS(
+		    			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(MEASUREMENT_TIME), MEASUREMENT_TIMER_HANDLE, SOFT_TIMER_FREE_RUN)
+		    			->result, "Failed to start measurement timer.");
+
 				/* If we're allowed to go into deep sleep, switch to low power. */
 				if (!disable_deep_sleep) {
 					_become_lpn();
-				} else {
-					debug_log("Skipping LPN mode due to boot button.");
 				}
 			}
 			if(evt->data.evt_system_external_signal.extsignals & PB_EVT_0) {
@@ -403,6 +474,9 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 					_toast("Forced TX");
 					_publish_moisture(MOIST_ALARM_FLAG);
 				}
+			}
+			if(evt->data.evt_system_external_signal.extsignals & ADC_WAIT_FINISHED) {
+				_finish_measurement();
 			}
 			break;
 
@@ -474,6 +548,10 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	    		case BEFRIEND_TIMER_HANDLE:
 	    			/* Retry making friends since we lost our old one or couldn't find one. */
 	    			_get_friend();
+	    			break;
+	    		case MEASUREMENT_TIMER_HANDLE:
+	    			/* Make and (if necessary) report the measurement. */
+	    			_do_measurement();
 	    			break;
 	    		default:
 	    			break;
