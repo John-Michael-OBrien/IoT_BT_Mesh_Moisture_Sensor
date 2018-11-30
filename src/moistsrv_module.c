@@ -258,6 +258,7 @@ static void _handle_client_request(uint16_t model_id,
 	uint16_t lux_level;
 	struct mesh_generic_state old_state;
 
+	debug_log("Incoming request. Kind: %d.", request->kind);
 	/* If it's not a generic level request, bail */
 	if (request->kind != mesh_generic_request_level) {
 		return;
@@ -319,7 +320,7 @@ static void _handle_server_change(uint16_t model_id,
         const struct mesh_generic_state *current,
         const struct mesh_generic_state *target,
         uint32_t remaining_ms) {
-	debug_log("Received state change. New target: %d", target->level.level);
+	debug_log("Moisture model changed. Level: %d", target->level.level);
 }
 
 /*
@@ -498,7 +499,7 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			debug_log("Connection opened. Turning off LPN.");
 			++conn_count;
 			DEBUG_ASSERT_BGAPI_SUCCESS(
-					gecko_cmd_mesh_lpn_init()
+					gecko_cmd_mesh_lpn_deinit()
 					->result, "Failed to initialize LPN functionality.");
 			break;
 
