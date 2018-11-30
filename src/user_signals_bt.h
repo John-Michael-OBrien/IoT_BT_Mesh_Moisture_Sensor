@@ -9,6 +9,8 @@
 #ifndef SRC_USER_SIGNALS_BT_H_
 #define SRC_USER_SIGNALS_BT_H_
 
+#define ADC_WAIT_FINISHED (1<<0)
+
 #define PB_EVT_0 (1<<1)
 #define PB_EVT_1 (1<<2)
 
