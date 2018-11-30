@@ -23,10 +23,8 @@
 /* Wait 10ms for the sensor to level out. */
 #define SOIL_POWER_ON_TIME (0.010) /* s */
 
-//#define SOIL_SIGNAL_POS_MUX (adcPosSelAPORT1XCH10)
-#define SOIL_SIGNAL_POS_MUX (adcPosSelAPORT4XCH3)
-#define SOIL_SIGNAL_NEG_MUX (adcPosSelAPORT4YCH4)
-//#define SOIL_SIGNAL_NEG_MUX (adcNegSelVSS)
+#define SOIL_SIGNAL_POS_MUX (adcPosSelAPORT4XCH3) /* Maps Pin D11 to Bus 4X */
+#define SOIL_SIGNAL_NEG_MUX (adcPosSelAPORT4YCH4) /* Maps Pin D12 to Bus 4Y */
 #define SOIL_SIGNAL_REF (adcRefVDD)
 
 

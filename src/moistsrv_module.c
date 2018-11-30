@@ -87,7 +87,7 @@ static void _finish_measurement();
  * The rest of the numbers are pretty much arbitrary. More engineering would be possible, but realistically this
  * table should be set using a user settings model and a direct measurement mode.
  */
-static const uint16_t lux_to_alarm_table[] = {0x0F00,0x0E00,0x0D00,0xC00,0xB00,0xA00,0x900,0x800,0x700,0x600,0x500};
+static const uint16_t lux_to_alarm_table[] = {0x0F00,0x0E00,0x0D00,0xC00,0xB00,0xA00,0x900,0x800,0x400,0x300,0x200};
 static const uint8_t max_lux = sizeof(lux_to_alarm_table)-1;
 
 /*
@@ -211,11 +211,13 @@ static void _update_level(uint16_t level) {
 	struct mesh_generic_state next_state;
 	errorcode_t result;
 
+	/* Build up two copies of the state structure */
 	outbound_state.kind = mesh_generic_state_level;
 	outbound_state.level.level = level; //level;
 	next_state.kind = mesh_generic_state_level;
 	next_state.level.level = level; //level;
 
+	/* And hand it to mesh_lib so it can update the BGAPI */
 	result = mesh_lib_generic_server_update(
 			MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
 			MOISTURE_ELEMENT_INDEX,

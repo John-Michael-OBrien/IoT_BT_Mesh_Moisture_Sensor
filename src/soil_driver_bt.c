@@ -67,8 +67,7 @@ void _ready() {
 	_init_settings_single.negSel = SOIL_SIGNAL_NEG_MUX;
 	_init_settings_single.reference = SOIL_SIGNAL_REF;
 
-	/* Ask EM lib to set things
-	 *  up for us. */
+	/* Ask EM lib to set things up for us. */
 	ADC_Init(ADC0, &_init_settings);
 	ADC_InitSingle(ADC0, &_init_settings_single);
 
@@ -82,8 +81,7 @@ void _ready() {
  */
 static void _power_on_sensor() {
 	/* Turn on the power management pin */
-	GPIO_PinModeSet(SOIL_PWR_PORT,SOIL_PWR_PIN, gpioModePushPull, false);
-	GPIO_PinOutSet(SOIL_PWR_PORT,SOIL_PWR_PIN);
+	GPIO_PinModeSet(SOIL_PWR_PORT,SOIL_PWR_PIN, gpioModePushPull, true);
 }
 
 /*
@@ -93,7 +91,6 @@ static void _power_on_sensor() {
  */
 static void _power_off_sensor() {
 	/* Turn off the power management pin */
-	GPIO_PinOutClear(SOIL_PWR_PORT,SOIL_PWR_PIN);
 	GPIO_PinModeSet(SOIL_PWR_PORT,SOIL_PWR_PIN, gpioModeDisabled, false);
 }
 
@@ -103,44 +100,87 @@ static void _power_off_sensor() {
  * @return void
  */
 void _unready() {
+	/* Reset/disable the ADC */
 	ADC_Reset(ADC0);
+	/* And unclock it */
 	CMU_ClockEnable(cmuClock_ADC0, false);
 }
 
 /*
  * @brief Synchronously starts the sensor, takes a measurement, and shuts down the sensor.
  *
+ * Does not require the BGAPI to function but does not provide power on delays.
+ *
  * @return The ADC result of the soil reading
  */
 uint16_t soil_get_reading_sync() {
 	uint16_t result;
 
+	/* Turn on the sensor */
 	_power_on_sensor();
+	/* and ready the ADC */
 	_ready();
+
+	/* Start the measurement */
 	ADC_Start(ADC0, adcStartSingle);
+	/* Stall for the measurement to finish */
 	while ( (ADC0->STATUS & ADC_STATUS_SINGLEDV) == 0 ) {
 	}
+	/* Cache the result */
 	result = ADC_DataSingleGet(ADC0);
+
+	/* And shut down the ADC */
 	_unready();
+	/* Turn off the sensor */
 	_power_off_sensor();
+
+	/* And return the result. */
 	return result;
 }
 
+/*
+ * @brief Starts the power on process for the ADC
+ *
+ * Requires the BGAPI be initialized and that a handler for the external signal be in place.
+ *
+ * @return The ADC result of the soil reading
+ */
 void soil_start_reading_async() {
+	/* Turn on the sensor */
 	_power_on_sensor();
+	/* And start the delay */
 	timeros_do_shot(&_delay);
 }
 
+/*
+ * @brief Finishes the power on and makes the measurement.
+ *
+ * Should be called from the BGAPI external signal handler.
+ *
+ * @return The ADC result of the soil reading
+ */
 uint16_t soil_finish_reading_async() {
 	uint16_t result;
 
+	/* Clean up the timer */
 	timeros_finish_shot();
+
+	/* Ready the ADC */
 	_ready();
+
+	/* Start the measurement */
 	ADC_Start(ADC0, adcStartSingle);
+	/* Stall for the measurement to finish */
 	while ( (ADC0->STATUS & ADC_STATUS_SINGLEDV) == 0 ) {
 	}
+	/* Cache the result */
 	result = ADC_DataSingleGet(ADC0);
+
+	/* And shut down the ADC */
 	_unready();
+	/* Turn off the sensor */
 	_power_off_sensor();
+
+	/* And return the result. */
 	return result;
 }
