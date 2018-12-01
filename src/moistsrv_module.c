@@ -541,15 +541,19 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			DEBUG_ASSERT_BGAPI_SUCCESS(
 					gecko_cmd_mesh_lpn_deinit()
 					->result, "Failed to initialize LPN functionality.");
-			LCD_write("CON: HiPwr", LCD_ROW_CONNECTION);
+			LCD_write("Awake for Connection", LCD_ROW_CONNECTION);
+			_toast("External Connect");
 			break;
 
 	    case gecko_evt_le_connection_closed_id:
 	    	--conn_count;
+			_toast("External Disconnect");
 	    	if (conn_count <= 0) {
 	    		if (ready && !disable_deep_sleep) {
 	    			debug_log("All connections closed. Turning on LPN.");
 	    			_become_lpn();
+	    		} else if (ready && disable_deep_sleep) {
+	    			LCD_write("Fully Awake", LCD_ROW_CONNECTION);
 	    		}
 	    	}
 			break;
