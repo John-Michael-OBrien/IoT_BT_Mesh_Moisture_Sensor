@@ -29,6 +29,10 @@
 #include "debug.h"
 #include "user_signals_bt.h"
 
+#define OUR_ADDRESS_LENGTH (6)
+#define OUR_ADDRESS_OFFSET (BT_ADDRESS_LENGTH - OUR_ADDRESS_LENGTH)
+#define MESHCONN_SECURE_DIGITS (4)
+
 
 const static uint8_t mesh_static_auth_data[] = MESH_STATIC_KEY;
 
@@ -72,8 +76,9 @@ static void _reset_state() {
 	blink_state = false;
 	blinking = false;
 	state = booted;
-	LCD_write("Mesh ADDR", LCD_ROW_BTADDR1);
-	LCD_write("", LCD_ROW_BTADDR2);
+	LCD_write("", LCD_ROW_BTADDR1);
+	LCD_write("Mesh ADDR", LCD_ROW_BTADDR2);
+	LCD_write("", LCD_ROW_CLIENTADDR);
 	LCD_write("", LCD_ROW_PASSKEY);
 	LCD_write("Booting...", LCD_ROW_CONNECTION);
 }
@@ -251,12 +256,22 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 				return;
 			}
 
+			/* Put our address on the screen. */
+			/* This makes provisioning much easier. */
+			LCD_write(
+				bt_address_to_string(
+					gecko_cmd_system_get_bt_address()->address,
+					OUR_ADDRESS_LENGTH,
+					OUR_ADDRESS_OFFSET,
+					prompt_buffer),
+					LCD_ROW_BTADDR1);
+
 			DEBUG_ASSERT_BGAPI_SUCCESS(gecko_cmd_mesh_node_init_oob(
 					0,
 					MESH_PROV_AUTH_METHOD_STATIC_OOB | MESH_PROV_AUTH_METHOD_OUTPUT_OOB,
 //					MESH_PROV_OOB_OUTPUT_ACTIONS_BLINK | MESH_PROV_OOB_OUTPUT_ACTIONS_NUMERIC,
 					MESH_PROV_OOB_OUTPUT_ACTIONS_NUMERIC,
-					4,
+					MESHCONN_SECURE_DIGITS,
 					MESH_PROV_OOB_INPUT_ACTIONS_NONE,
 					0,
 					MESH_PROV_OOB_LOCATION_OTHER)
@@ -305,7 +320,7 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 					oob_data = evt->data.evt_mesh_node_display_output_oob.data.data;
 					oob_offset = evt->data.evt_mesh_node_display_output_oob.data.len - 2;
 					oob_value = (((uint16_t) oob_data[oob_offset]) << 8) | ((uint16_t) oob_data[oob_offset+1]);
-					sprintf(prompt_buffer,"%06d",oob_value);
+					sprintf(prompt_buffer,"%04d",oob_value);
 					LCD_write(prompt_buffer,LCD_ROW_PASSKEY);
 					break;
 				default:
@@ -373,7 +388,7 @@ void meshconn_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 				struct gecko_msg_mesh_node_get_element_address_rsp_t *addr = gecko_cmd_mesh_node_get_element_address(0);
 				DEBUG_ASSERT_BGAPI_SUCCESS(addr->result,"Failed to get element address.");
 				sprintf(prompt_buffer, "0x%04X", addr->address);
-				LCD_write(prompt_buffer, LCD_ROW_BTADDR2);
+				LCD_write(prompt_buffer, LCD_ROW_CLIENTADDR);
 			}
 			break;
 

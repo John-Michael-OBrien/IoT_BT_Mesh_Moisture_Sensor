@@ -91,9 +91,9 @@ static const uint16_t lux_to_alarm_table[] = {0x0F00,0x0E00,0x0D00,0xC00,0xB00,0
 static const uint8_t max_lux = sizeof(lux_to_alarm_table)-1;
 
 /*
- * @brief Briefly displays a message on the LCD
+ * @brief Briefly displays a message on the LCD.
  *
- * @param message The message to be displayed
+ * @param message The message to be displayed.
  *
  * @return void
  */
@@ -137,7 +137,7 @@ static void _set_alarm_level(uint16_t new_level) {
 	settings.alarm_level = new_level;
 
 	/* Show it to the user */
-	sprintf(prompt_buffer, "New: 0x%04X", settings.alarm_level);
+	sprintf(prompt_buffer, "ALM LVL: 0x%04X", settings.alarm_level);
 	_toast(prompt_buffer);
 
 	/* Start the timer to save the settings eventually */
@@ -191,11 +191,22 @@ static void _load_settings() {
  */
 static void _publish_moisture(uint16_t level) {
 	errorcode_t result;
+
+	/* Update the model */
 	_update_level(level);
+
+	/* And send the value to the mesh */
 	result=mesh_lib_generic_server_publish(
 				MESH_GENERIC_LEVEL_SERVER_MODEL_ID,
 				MOISTURE_ELEMENT_INDEX,
 				mesh_generic_state_level);
+
+	/* If something goes wrong, say something. */
+	if (result != bg_err_success) {
+		sprintf(prompt_buffer,"P-ERR: 0x%04X", result);
+		_toast(prompt_buffer);
+	}
+
 	debug_log("Published. Result: 0x%04X", result);
 }
 
@@ -224,6 +235,13 @@ static void _update_level(uint16_t level) {
 			&outbound_state,
 			&next_state,
 			0);
+
+	/* If something goes wrong, say something. */
+	if (result != bg_err_success) {
+		sprintf(prompt_buffer,"U-ERR: 0x%04X", result);
+		_toast(prompt_buffer);
+	}
+
 	debug_log("Updated. Result: 0x%04X", result);
 }
 
@@ -259,6 +277,7 @@ static void _handle_client_request(uint16_t model_id,
 
 	uint16_t lux_level;
 	struct mesh_generic_state old_state;
+	errorcode_t result;
 
 	debug_log("Incoming request. Kind: %d.", request->kind);
 	/* If it's not a generic level request, bail */
@@ -290,7 +309,7 @@ static void _handle_client_request(uint16_t model_id,
 		/* Set the level to our alarm level */
 		old_state.level.level = settings.alarm_level;
 		/* And send that to our client. */
-		mesh_lib_generic_server_response(
+		result = mesh_lib_generic_server_response(
 				model_id,
 				element_index,
 				client_addr,
@@ -299,6 +318,13 @@ static void _handle_client_request(uint16_t model_id,
 				&old_state,
 				0,
 				0);
+		/* If something goes wrong, say something. */
+		if (result != bg_err_success) {
+			sprintf(prompt_buffer,"R-ERR: 0x%04X", result);
+			_toast(prompt_buffer);
+		}
+
+		debug_log("Responded. Result: 0x%04X", result);
 	}
 }
 
@@ -356,6 +382,7 @@ static void _init_and_register_models() {
  */
 static void _become_lpn() {
 	debug_log("Becoming friend...");
+	LCD_write("Not Friended", LCD_ROW_CONNECTION);
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_mesh_lpn_init()
 			->result, "Failed to initialize LPN functionality.");
@@ -379,6 +406,7 @@ static void _get_friend() {
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_mesh_lpn_establish_friendship(0)
 			->result, "Failed to start looking for a friend.");
+	LCD_write("Befriending", LCD_ROW_CONNECTION);
 }
 
 /*
@@ -389,7 +417,6 @@ static void _get_friend() {
 static void _do_measurement() {
 	/* Turn on the ADC and sensor */
 	soil_start_reading_async();
-
 }
 
 /*
@@ -405,14 +432,23 @@ static void _finish_measurement() {
 	/* Make the measurement */
 	measurement = soil_finish_reading_async();
 	debug_log("ADC Reading: %04X against %04X threshold", measurement, settings.alarm_level);
-	sprintf(prompt_buffer,"Wet: 0x%04X",measurement);
-	LCD_write(prompt_buffer,LCD_ROW_TEMPVALUE);
 
 	/* If we're over the limit... */
 	if (measurement > settings.alarm_level) {
 		debug_log("Sending Alarm.");
+
+		/* Publish the moisture alarm to the group */
 		_publish_moisture(MOIST_ALARM_FLAG);
+
+		/* Make the wet (alarmed) prompt */
+		sprintf(prompt_buffer,"Wet: 0x%04X",measurement);
+	} else {
+		/* Make the dry (unalarmed) prompt */
+		sprintf(prompt_buffer,"Dry: 0x%04X",measurement);
 	}
+
+	/* Write the prompt to the screen */
+	LCD_write(prompt_buffer,LCD_ROW_TEMPVALUE);
 
 	/* Send the measurement to the group */
 	_publish_moisture(measurement);
@@ -469,6 +505,8 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 				/* If we're allowed to go into deep sleep, switch to low power. */
 				if (!disable_deep_sleep) {
 					_become_lpn();
+				} else {
+					LCD_write("Fully Awake", LCD_ROW_CONNECTION);
 				}
 			}
 			if(evt->data.evt_system_external_signal.extsignals & PB_EVT_0) {
@@ -503,6 +541,7 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 			DEBUG_ASSERT_BGAPI_SUCCESS(
 					gecko_cmd_mesh_lpn_deinit()
 					->result, "Failed to initialize LPN functionality.");
+			LCD_write("CON: HiPwr", LCD_ROW_CONNECTION);
 			break;
 
 	    case gecko_evt_le_connection_closed_id:
@@ -518,13 +557,18 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	    case gecko_evt_mesh_lpn_friendship_established_id:
 	        debug_log("gecko_evt_mesh_lpn_friendship_established_id");
 	        debug_log("Maximum Sleep mode: %d\n",SLEEP_LowestEnergyModeGet());
+	    	_toast("Friend Found");
+			LCD_write("Friended", LCD_ROW_CONNECTION);
 	        /* Yay! Friends! Do nothing! */
 	    	break;
 
 	    case gecko_evt_mesh_lpn_friendship_failed_id:
 	        debug_log("gecko_evt_mesh_lpn_friendship_failed_id");
 
-	        /* Try looking for a friend again after a bit. */
+	        _toast("Befriend Failed");
+	    	LCD_write("Friend Wait", LCD_ROW_CONNECTION);
+
+	    	/* Try looking for a friend again after a bit. */
 	    	DEBUG_ASSERT_BGAPI_SUCCESS(
 	    			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(BEFRIEND_RETRY_DELAY), BEFRIEND_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
 	    			->result, "Failed to start friendship retry timer.");
@@ -532,6 +576,9 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 
 	    case gecko_evt_mesh_lpn_friendship_terminated_id:
 	        debug_log("gecko_evt_mesh_lpn_friendship_terminated_id");
+
+	    	LCD_write("Not Friended", LCD_ROW_CONNECTION);
+	    	_toast("Lost Friend");
 
 	        /* Reach out for a new friend since we lost ours. */
 	        _get_friend();
