@@ -15,10 +15,10 @@
 #define SOIL_PWR_PIN (10)
 
 #define SOIL_POS_PORT (gpioPortD)
-#define SOIL_POS_PIN (12)
+#define SOIL_POS_PIN (11)
 
 #define SOIL_NEG_PORT (gpioPortD)
-#define SOIL_NEG_PIN (11)
+#define SOIL_NEG_PIN (12)
 
 /* Wait 10ms for the sensor to level out. */
 #define SOIL_POWER_ON_TIME (0.010) /* s */
