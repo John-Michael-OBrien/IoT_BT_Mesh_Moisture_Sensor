@@ -516,9 +516,6 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 					_publish_moisture(MOIST_ALARM_FLAG);
 				}
 			}
-			if(evt->data.evt_system_external_signal.extsignals & ADC_WAIT_FINISHED) {
-				_finish_measurement();
-			}
 			break;
 
 	    case gecko_evt_mesh_generic_server_client_request_id:
@@ -607,6 +604,9 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	    			/* Make and (if necessary) report the measurement. */
 	    			_do_measurement();
 	    			break;
+	    		case SOIL_POWER_ON_HANDLE:
+					_finish_measurement();
+					break;
 	    		default:
 	    			break;
 	    	}

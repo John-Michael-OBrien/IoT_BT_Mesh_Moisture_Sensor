@@ -15,7 +15,7 @@
  * any purpose, you must agree to the terms of that agreement.
  */
 
-#include <src/soil_driver_bt.h>
+#include "stdint.h"
 #include "stdbool.h"
 
 #include "em_cmu.h"
@@ -23,14 +23,15 @@
 #include "em_adc.h"
 #include "em_gpio.h"
 
-#include "hf_one_shot_timer_driver_bt.h"
+#include "debug.h"
+#include "utils_bt.h"
+
+#include "soil_driver_bt.h"
 
 static void _power_on_sensor();
 static void _power_off_sensor();
 static void _ready();
 static void _unready();
-
-static TIMEROS_Delay_TypeDef _delay;
 
 void soil_init(const uint32_t event_signal_mask) {
 	/* Connect the GPIO peripheral to the HS Clock Bus */
@@ -38,10 +39,6 @@ void soil_init(const uint32_t event_signal_mask) {
 	/* Configure the power pin and port to be a strong output */
 	GPIO_DriveStrengthSet(SOIL_PWR_PORT, gpioDriveStrengthStrongAlternateStrong);
 
-	/* Power up the timer. */
-	timeros_init(event_signal_mask);
-	/* And precompute our delay */
-	_delay = timeros_calc_ticks(SOIL_POWER_ON_TIME);
 }
 
 /*
@@ -149,7 +146,9 @@ void soil_start_reading_async() {
 	/* Turn on the sensor */
 	_power_on_sensor();
 	/* And start the delay */
-	timeros_do_shot(&_delay);
+	DEBUG_ASSERT_BGAPI_SUCCESS(
+			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(SOIL_POWER_ON_TIME), SOIL_POWER_ON_HANDLE, SOFT_TIMER_ONE_SHOT)->result,
+			"Failed to start sensor power on timer.");
 }
 
 /*
@@ -162,8 +161,6 @@ void soil_start_reading_async() {
 uint16_t soil_finish_reading_async() {
 	uint16_t result;
 
-	/* Clean up the timer */
-	timeros_finish_shot();
 
 	/* Ready the ADC */
 	_ready();
