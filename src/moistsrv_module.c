@@ -376,11 +376,32 @@ static void _init_and_register_models() {
 }
 
 /*
+ * @brief Deinitializes the LPN subsystem, and prevents any pending retry timers.
+ *
+ * @return void
+ */
+static void _become_full_power() {
+	/* Stop the befriend retry timer. */
+	DEBUG_ASSERT_BGAPI_SUCCESS(
+			gecko_cmd_hardware_set_soft_timer(SOFT_TIMER_STOP, BEFRIEND_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
+			->result, "Failed to stop friendship retry timer.");
+
+	DEBUG_ASSERT_BGAPI_SUCCESS(
+			gecko_cmd_mesh_lpn_deinit()
+			->result, "Failed to deinitialize LPN functionality.");	\
+}
+
+/*
  * @brief Initializes the LPN subsystem, configures it, and attempts to establish a friendship.
  *
  * @return void
  */
 static void _become_lpn() {
+	/* If we're not supposed to befriend people, bail */
+	if (conn_count > 0 || disable_deep_sleep) {
+		return;
+	}
+
 	debug_log("Becoming friend...");
 	LCD_write("Not Friended", LCD_ROW_CONNECTION);
 	DEBUG_ASSERT_BGAPI_SUCCESS(
@@ -397,12 +418,20 @@ static void _become_lpn() {
 /*
  * @brief Attempts to establish a connection to a friend.
  *
- * Mostly just a wrapper on gecko_cmd_mesh_lpn_establish_friendship to allow for unification
- * of code paths as this gets called a few different ways.
- *
  * @return void
  */
 static void _get_friend() {
+	/* If we're not supposed to befriend people, bail */
+	if (conn_count > 0 || disable_deep_sleep) {
+		return;
+	}
+
+	/* Stop any pending timers */
+	DEBUG_ASSERT_BGAPI_SUCCESS(
+			gecko_cmd_hardware_set_soft_timer(SOFT_TIMER_STOP, BEFRIEND_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
+			->result, "Failed to stop friendship retry timer.");
+
+	/* Attempt to find a friend */
 	DEBUG_ASSERT_BGAPI_SUCCESS(
 			gecko_cmd_mesh_lpn_establish_friendship(0)
 			->result, "Failed to start looking for a friend.");
@@ -535,9 +564,7 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 		case gecko_evt_le_connection_opened_id:
 			debug_log("Connection opened. Turning off LPN.");
 			++conn_count;
-			DEBUG_ASSERT_BGAPI_SUCCESS(
-					gecko_cmd_mesh_lpn_deinit()
-					->result, "Failed to initialize LPN functionality.");
+			_become_full_power();
 			LCD_write("Awake for Connection", LCD_ROW_CONNECTION);
 			_toast("External Connect");
 			break;
