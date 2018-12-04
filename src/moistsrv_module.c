@@ -77,6 +77,7 @@ static void _handle_server_change(uint16_t model_id,
 static void _init_and_register_models();
 static void _become_lpn();
 static void _get_friend();
+static void _delay_befriending();
 static void _do_measurement();
 static void _finish_measurement();
 
@@ -306,8 +307,11 @@ static void _handle_client_request(uint16_t model_id,
 
 	/* If we are supposed to respond  */
 	if (request_flags & MESH_REQUEST_FLAG_RESPONSE_REQUIRED) {
+		/* Set the kind */
+		old_state.kind = mesh_generic_state_level;
 		/* Set the level to our alarm level */
 		old_state.level.level = settings.alarm_level;
+
 		/* And send that to our client. */
 		result = mesh_lib_generic_server_response(
 				model_id,
@@ -317,7 +321,7 @@ static void _handle_client_request(uint16_t model_id,
 				&old_state,
 				&old_state,
 				0,
-				0);
+				request_flags & 0x01);
 		/* If something goes wrong, say something. */
 		if (result != bg_err_success) {
 			sprintf(prompt_buffer,"R-ERR: 0x%04X", result);
@@ -421,6 +425,8 @@ static void _become_lpn() {
  * @return void
  */
 static void _get_friend() {
+	errorcode_t result;
+
 	/* If we're not supposed to befriend people, bail */
 	if (conn_count > 0 || disable_deep_sleep) {
 		return;
@@ -432,10 +438,26 @@ static void _get_friend() {
 			->result, "Failed to stop friendship retry timer.");
 
 	/* Attempt to find a friend */
+	result =  gecko_cmd_mesh_lpn_establish_friendship(0)->result;
+
+	/* If we're good let the user know */
+	if (result == bg_err_success) {
+		LCD_write("Befriending", LCD_ROW_CONNECTION);
+	}
+	else {
+		/* If not, hold off and try again */
+		_delay_befriending();
+	}
+}
+
+static void _delay_befriending() {
+	_toast("Befriend Failed");
+	LCD_write("Friend Wait", LCD_ROW_CONNECTION);
+
+	/* Try looking for a friend again after a bit. */
 	DEBUG_ASSERT_BGAPI_SUCCESS(
-			gecko_cmd_mesh_lpn_establish_friendship(0)
-			->result, "Failed to start looking for a friend.");
-	LCD_write("Befriending", LCD_ROW_CONNECTION);
+			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(BEFRIEND_RETRY_DELAY), BEFRIEND_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
+			->result, "Failed to start friendship retry timer.");
 }
 
 /*
@@ -470,10 +492,10 @@ static void _finish_measurement() {
 		_publish_moisture(MOIST_ALARM_FLAG);
 
 		/* Make the wet (alarmed) prompt */
-		sprintf(prompt_buffer,"Wet: 0x%04X",measurement);
+		sprintf(prompt_buffer,"Wet: 0x%04X/0x%04X",measurement, settings.alarm_level);
 	} else {
 		/* Make the dry (unalarmed) prompt */
-		sprintf(prompt_buffer,"Dry: 0x%04X",measurement);
+		sprintf(prompt_buffer,"Dry: 0x%04X/0x%04X",measurement, settings.alarm_level);
 	}
 
 	/* Write the prompt to the screen */
@@ -591,15 +613,8 @@ void moistsrv_handle_events(uint32_t evt_id, struct gecko_cmd_packet *evt) {
 	    	break;
 
 	    case gecko_evt_mesh_lpn_friendship_failed_id:
-	        debug_log("gecko_evt_mesh_lpn_friendship_failed_id");
-
-	        _toast("Befriend Failed");
-	    	LCD_write("Friend Wait", LCD_ROW_CONNECTION);
-
-	    	/* Try looking for a friend again after a bit. */
-	    	DEBUG_ASSERT_BGAPI_SUCCESS(
-	    			gecko_cmd_hardware_set_soft_timer(GET_SOFT_TIMER_COUNTS(BEFRIEND_RETRY_DELAY), BEFRIEND_TIMER_HANDLE, SOFT_TIMER_ONE_SHOT)
-	    			->result, "Failed to start friendship retry timer.");
+	    	debug_log("gecko_evt_mesh_lpn_friendship_failed_id");
+	    	_delay_befriending();
 	    	break;
 
 	    case gecko_evt_mesh_lpn_friendship_terminated_id:
